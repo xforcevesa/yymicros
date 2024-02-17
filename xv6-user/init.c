@@ -17,18 +17,22 @@ main(void)
   //   mknod("console", CONSOLE, 0);
   //   open("console", O_RDWR);
   // }
-  dev(O_RDWR, CONSOLE, 0);
+  int fd = dev(O_RDWR, CONSOLE, 0);
   dup(0);  // stdout
   dup(0);  // stderr
+  printf("init: %d fd \n", fd);
 
   for(;;){
     printf("init: starting sh\n");
+
     pid = fork();
+    printf("init: %d pid \n", pid);
     if(pid < 0){
       printf("init: fork failed\n");
       exit(1);
     }
     if(pid == 0){
+      printf("init: %d pid \n", pid);
       exec("sh", argv);
       printf("init: exec sh failed\n");
       exit(1);
