@@ -2,16 +2,20 @@
 // Support functions for system calls that involve file descriptors.
 //
 
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-#include "param.h"
-#include "fs.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "file.h"
-#include "stat.h"
-#include "proc.h"
+
+#include "include/types.h"
+#include "include/riscv.h"
+#include "include/param.h"
+#include "include/spinlock.h"
+#include "include/sleeplock.h"
+#include "include/fat32.h"
+#include "include/file.h"
+#include "include/pipe.h"
+#include "include/stat.h"
+#include "include/proc.h"
+#include "include/printf.h"
+#include "include/string.h"
+#include "include/vm.h"
 
 struct devsw devsw[NDEV];
 struct {
@@ -23,6 +27,13 @@ void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
+  struct file *f;
+  for(f = ftable.file; f < ftable.file + NFILE; f++){
+    memset(f, 0, sizeof(struct file));
+  }
+  #ifdef DEBUG
+  printf("fileinit\n");
+  #endif
 }
 
 // Allocate a file structure.
@@ -40,7 +51,7 @@ filealloc(void)
     }
   }
   release(&ftable.lock);
-  return 0;
+  return NULL;
 }
 
 // Increment ref count for file f.
@@ -75,10 +86,10 @@ fileclose(struct file *f)
 
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
-  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
-    begin_op();
-    iput(ff.ip);
-    end_op();
+  } else if(ff.type == FD_ENTRY){
+    eput(ff.ep);
+  } else if (ff.type == FD_DEVICE) {
+
   }
 }
 
@@ -87,14 +98,15 @@ fileclose(struct file *f)
 int
 filestat(struct file *f, uint64 addr)
 {
-  struct proc *p = myproc();
+  // struct proc *p = myproc();
   struct stat st;
   
-  if(f->type == FD_INODE || f->type == FD_DEVICE){
-    ilock(f->ip);
-    stati(f->ip, &st);
-    iunlock(f->ip);
-    if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+  if(f->type == FD_ENTRY){
+    elock(f->ep);
+    estat(f->ep, &st);
+    eunlock(f->ep);
+    // if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+    if(copyout2(addr, (char *)&st, sizeof(st)) < 0)
       return -1;
     return 0;
   }
@@ -111,19 +123,23 @@ fileread(struct file *f, uint64 addr, int n)
   if(f->readable == 0)
     return -1;
 
-  if(f->type == FD_PIPE){
-    r = piperead(f->pipe, addr, n);
-  } else if(f->type == FD_DEVICE){
-    if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
-      return -1;
-    r = devsw[f->major].read(1, addr, n);
-  } else if(f->type == FD_INODE){
-    ilock(f->ip);
-    if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
-      f->off += r;
-    iunlock(f->ip);
-  } else {
-    panic("fileread");
+  switch (f->type) {
+    case FD_PIPE:
+        r = piperead(f->pipe, addr, n);
+        break;
+    case FD_DEVICE:
+        if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
+          return -1;
+        r = devsw[f->major].read(1, addr, n);
+        break;
+    case FD_ENTRY:
+        elock(f->ep);
+          if((r = eread(f->ep, 1, addr, f->off, n)) > 0)
+            f->off += r;
+        eunlock(f->ep);
+        break;
+    default:
+      panic("fileread");
   }
 
   return r;
@@ -134,7 +150,7 @@ fileread(struct file *f, uint64 addr, int n)
 int
 filewrite(struct file *f, uint64 addr, int n)
 {
-  int r, ret = 0;
+  int ret = 0;
 
   if(f->writable == 0)
     return -1;
@@ -145,34 +161,15 @@ filewrite(struct file *f, uint64 addr, int n)
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
       return -1;
     ret = devsw[f->major].write(1, addr, n);
-  } else if(f->type == FD_INODE){
-    // write a few blocks at a time to avoid exceeding
-    // the maximum log transaction size, including
-    // i-node, indirect block, allocation blocks,
-    // and 2 blocks of slop for non-aligned writes.
-    // this really belongs lower down, since writei()
-    // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
-    int i = 0;
-    while(i < n){
-      int n1 = n - i;
-      if(n1 > max)
-        n1 = max;
-
-      begin_op();
-      ilock(f->ip);
-      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
-        f->off += r;
-      iunlock(f->ip);
-      end_op();
-
-      if(r != n1){
-        // error from writei
-        break;
-      }
-      i += r;
+  } else if(f->type == FD_ENTRY){
+    elock(f->ep);
+    if (ewrite(f->ep, 1, addr, f->off, n) == n) {
+      ret = n;
+      f->off += n;
+    } else {
+      ret = -1;
     }
-    ret = (i == n ? n : -1);
+    eunlock(f->ep);
   } else {
     panic("filewrite");
   }
@@ -180,3 +177,33 @@ filewrite(struct file *f, uint64 addr, int n)
   return ret;
 }
 
+// Read from dir f.
+// addr is a user virtual address.
+int
+dirnext(struct file *f, uint64 addr)
+{
+  // struct proc *p = myproc();
+
+  if(f->readable == 0 || !(f->ep->attribute & ATTR_DIRECTORY))
+    return -1;
+
+  struct dirent de;
+  struct stat st;
+  int count = 0;
+  int ret;
+  elock(f->ep);
+  while ((ret = enext(f->ep, &de, f->off, &count)) == 0) {  // skip empty entry
+    f->off += count * 32;
+  }
+  eunlock(f->ep);
+  if (ret == -1)
+    return 0;
+
+  f->off += count * 32;
+  estat(&de, &st);
+  // if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+  if(copyout2(addr, (char *)&st, sizeof(st)) < 0)
+    return -1;
+
+  return 1;
+}

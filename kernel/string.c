@@ -1,4 +1,4 @@
-#include "types.h"
+#include "include/types.h"
 
 void*
 memset(void *dst, int c, uint n)
@@ -33,9 +33,6 @@ memmove(void *dst, const void *src, uint n)
   const char *s;
   char *d;
 
-  if(n == 0)
-    return dst;
-  
   s = src;
   d = dst;
   if(s < d && s + n > d){
@@ -105,3 +102,42 @@ strlen(const char *s)
   return n;
 }
 
+// convert uchar string into wide char string 
+void wnstr(wchar *dst, char const *src, int len) {
+  while (len -- && *src) {
+    *(uchar*)dst = *src++;
+    dst ++;
+  }
+
+  *dst = 0;
+}
+
+// convert wide char string into uchar string 
+void snstr(char *dst, wchar const *src, int len) {
+  while (len -- && *src) {
+    *dst++ = (uchar)(*src & 0xff);
+    src ++;
+  }
+  while(len-- > 0)
+    *dst++ = 0;
+}
+
+int wcsncmp(wchar const *s1, wchar const *s2, int len) {
+  int ret = 0;
+
+  while (len-- && *s1) {
+    ret = (int)(*s1++ - *s2++);
+    if (ret) break;
+  }
+
+  return ret;
+}
+
+char*
+strchr(const char *s, char c)
+{
+  for(; *s; s++)
+    if(*s == c)
+      return (char*)s;
+  return 0;
+}
