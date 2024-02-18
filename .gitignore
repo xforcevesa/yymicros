@@ -15,3 +15,11 @@ mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
+/target
+/.vscode
+.DS_Store
+*.asm
+*.img
+actual.out
+qemu.log
+rusty-tags.v
