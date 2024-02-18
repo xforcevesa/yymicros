@@ -14,14 +14,16 @@
 //     so do not keep them longer than necessary.
 
 
-#include "types.h"
-#include "param.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "riscv.h"
-#include "defs.h"
-#include "fs.h"
-#include "buf.h"
+
+#include "include/types.h"
+#include "include/param.h"
+#include "include/spinlock.h"
+#include "include/sleeplock.h"
+#include "include/riscv.h"
+#include "include/buf.h"
+#include "include/sdcard.h"
+#include "include/printf.h"
+#include "include/disk.h"
 
 struct {
   struct spinlock lock;
@@ -44,19 +46,25 @@ binit(void)
   bcache.head.prev = &bcache.head;
   bcache.head.next = &bcache.head;
   for(b = bcache.buf; b < bcache.buf+NBUF; b++){
+    b->refcnt = 0;
+    b->sectorno = ~0;
+    b->dev = ~0;
     b->next = bcache.head.next;
     b->prev = &bcache.head;
     initsleeplock(&b->lock, "buffer");
     bcache.head.next->prev = b;
     bcache.head.next = b;
   }
+  #ifdef DEBUG
+  printf("binit\n");
+  #endif
 }
 
 // Look through buffer cache for block on device dev.
 // If not found, allocate a buffer.
 // In either case, return locked buffer.
 static struct buf*
-bget(uint dev, uint blockno)
+bget(uint dev, uint sectorno)
 {
   struct buf *b;
 
@@ -64,7 +72,7 @@ bget(uint dev, uint blockno)
 
   // Is the block already cached?
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
-    if(b->dev == dev && b->blockno == blockno){
+    if(b->dev == dev && b->sectorno == sectorno){
       b->refcnt++;
       release(&bcache.lock);
       acquiresleep(&b->lock);
@@ -77,7 +85,7 @@ bget(uint dev, uint blockno)
   for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
     if(b->refcnt == 0) {
       b->dev = dev;
-      b->blockno = blockno;
+      b->sectorno = sectorno;
       b->valid = 0;
       b->refcnt = 1;
       release(&bcache.lock);
@@ -89,26 +97,25 @@ bget(uint dev, uint blockno)
 }
 
 // Return a locked buf with the contents of the indicated block.
-struct buf*
-bread(uint dev, uint blockno)
-{
+struct buf* 
+bread(uint dev, uint sectorno) {
   struct buf *b;
 
-  b = bget(dev, blockno);
-  if(!b->valid) {
-    virtio_disk_rw(b, 0);
+  b = bget(dev, sectorno);
+  if (!b->valid) {
+    disk_read(b);
     b->valid = 1;
   }
+
   return b;
 }
 
 // Write b's contents to disk.  Must be locked.
-void
-bwrite(struct buf *b)
-{
+void 
+bwrite(struct buf *b) {
   if(!holdingsleep(&b->lock))
     panic("bwrite");
-  virtio_disk_rw(b, 1);
+  disk_write(b);
 }
 
 // Release a locked buffer.

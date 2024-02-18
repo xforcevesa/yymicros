@@ -2,18 +2,19 @@
 // low-level driver routines for 16550a UART.
 //
 
-#include "types.h"
-#include "param.h"
-#include "memlayout.h"
-#include "riscv.h"
-#include "spinlock.h"
-#include "proc.h"
-#include "defs.h"
+
+#include "include/types.h"
+#include "include/param.h"
+#include "include/memlayout.h"
+#include "include/riscv.h"
+#include "include/spinlock.h"
+#include "include/proc.h"
+#include "include/intr.h"
 
 // the UART control registers are memory-mapped
 // at address UART0. this macro returns the
 // address of one of the registers.
-#define Reg(reg) ((volatile unsigned char *)(UART0 + reg))
+#define Reg(reg) ((volatile unsigned char *)(UART + reg))
 
 // the UART control registers.
 // some have different meanings for
@@ -22,8 +23,8 @@
 #define RHR 0                 // receive holding register (for input bytes)
 #define THR 0                 // transmit holding register (for output bytes)
 #define IER 1                 // interrupt enable register
-#define IER_RX_ENABLE (1<<0)
-#define IER_TX_ENABLE (1<<1)
+#define IER_TX_ENABLE (1<<0)
+#define IER_RX_ENABLE (1<<1)
 #define FCR 2                 // FIFO control register
 #define FCR_FIFO_ENABLE (1<<0)
 #define FCR_FIFO_CLEAR (3<<1) // clear the content of the two FIFOs
@@ -42,8 +43,8 @@
 struct spinlock uart_tx_lock;
 #define UART_TX_BUF_SIZE 32
 char uart_tx_buf[UART_TX_BUF_SIZE];
-uint64 uart_tx_w; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
-uint64 uart_tx_r; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
+int uart_tx_w; // write next to uart_tx_buf[uart_tx_w++]
+int uart_tx_r; // read next from uart_tx_buf[uar_tx_r++]
 
 extern volatile int panicked; // from printf.c
 
@@ -74,6 +75,8 @@ uartinit(void)
   // enable transmit and receive interrupts.
   WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
 
+    uart_tx_w = uart_tx_r = 0;
+
   initlock(&uart_tx_lock, "uart");
 }
 
@@ -92,17 +95,21 @@ uartputc(int c)
     for(;;)
       ;
   }
-  while(uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE){
-    // buffer is full.
-    // wait for uartstart() to open up space in the buffer.
-    sleep(&uart_tx_r, &uart_tx_lock);
-  }
-  uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
-  uart_tx_w += 1;
-  uartstart();
-  release(&uart_tx_lock);
-}
 
+  while(1){
+    if(((uart_tx_w + 1) % UART_TX_BUF_SIZE) == uart_tx_r){
+      // buffer is full.
+      // wait for uartstart() to open up space in the buffer.
+      sleep(&uart_tx_r, &uart_tx_lock);
+    } else {
+      uart_tx_buf[uart_tx_w] = c;
+      uart_tx_w = (uart_tx_w + 1) % UART_TX_BUF_SIZE;
+      uartstart();
+      release(&uart_tx_lock);
+      return;
+    }
+  }
+}
 
 // alternate version of uartputc() that doesn't 
 // use interrupts, for use by kernel printf() and
@@ -146,8 +153,8 @@ uartstart()
       return;
     }
     
-    int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
-    uart_tx_r += 1;
+    int c = uart_tx_buf[uart_tx_r];
+    uart_tx_r = (uart_tx_r + 1) % UART_TX_BUF_SIZE;
     
     // maybe uartputc() is waiting for space in the buffer.
     wakeup(&uart_tx_r);
@@ -171,7 +178,7 @@ uartgetc(void)
 
 // handle a uart interrupt, raised because input has
 // arrived, or the uart is ready for more output, or
-// both. called from devintr().
+// both. called from trap.c.
 void
 uartintr(void)
 {
