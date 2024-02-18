@@ -1,5 +1,0 @@
-Reading config file: "/home/nomodeset/yymicros/modules/axconfig/../../platforms/riscv64-qemu-virt.toml"
-Generating config file: /home/nomodeset/yymicros/target/riscv64gc-unknown-none-elf/release/build/axconfig-b184ae45b5738169/out/config.rs
-cargo:rerun-if-changed=/home/nomodeset/yymicros/modules/axconfig/../../platforms/riscv64-qemu-virt.toml
-cargo:rerun-if-env-changed=AX_PLATFORM
-cargo:rerun-if-env-changed=AX_SMP
