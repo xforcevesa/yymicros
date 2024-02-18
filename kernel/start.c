@@ -65,6 +65,10 @@ timerinit()
   // each CPU has a separate source of timer interrupts.
   int id = r_mhartid();
 
+  #ifdef DEBUG
+  printf("timerinit start\n");
+  #endif
+
   // ask the CLINT for a timer interrupt.
   int interval = 1000000; // cycles; about 1/10th second in qemu.
   *(uint64*)CLINT_MTIMECMP(id) = *(uint64*)CLINT_MTIME + interval;
@@ -86,4 +90,7 @@ timerinit()
 
   // enable machine-mode timer interrupts.
   w_mie(r_mie() | MIE_MTIE);
+  #ifdef DEBUG
+  printf("timerinit end\n");
+  #endif
 }

@@ -151,7 +151,7 @@ main(void)
 {
   static char buf[100];
   int fd;
-    printf("sh: fd %d", fd);
+  printf("sh: fd %d\n", fd);
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -161,7 +161,7 @@ main(void)
     }
   }
   // scanf("%d", &fd);
-  printf("sh: fd %d", fd);
+  printf("sh: fd %d\n", fd);
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
