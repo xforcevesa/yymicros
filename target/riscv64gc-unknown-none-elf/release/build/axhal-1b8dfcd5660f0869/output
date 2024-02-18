@@ -1,0 +1,2 @@
+cargo:rustc-cfg=platform="riscv64-qemu-virt"
+cargo:rustc-cfg=platform_family="riscv64-qemu-virt"

@@ -1,251 +1,216 @@
-platform	:= k210
-#platform	:= qemu
-# mode := debug
-mode := release
-K=kernel
-U=xv6-user
-T=target
+# Available arguments:
+# * General options:
+#     - `ARCH`: Target architecture: x86_64, riscv64, aarch64
+#     - `PLATFORM`: Target platform in the `platforms` directory
+#     - `SMP`: Number of CPUs
+#     - `MODE`: Build mode: release, debug
+#     - `LOG:` Logging level: warn, error, info, debug, trace
+#     - `V`: Verbose level: (empty), 1, 2
+# * App options:
+#     - `A` or `APP`: Path to the application
+#     - `FEATURES`: Features os ArceOS modules to be enabled.
+#     - `APP_FEATURES`: Features of (rust) apps to be enabled.
+# * QEMU options:
+#     - `BLK`: Enable storage devices (virtio-blk)
+#     - `NET`: Enable network devices (virtio-net)
+#     - `GRAPHIC`: Enable display devices and graphic output (virtio-gpu)
+#     - `BUS`: Device bus type: mmio, pci
+#     - `DISK_IMG`: Path to the virtual disk image
+#     - `ACCEL`: Enable hardware acceleration (KVM on linux)
+#     - `QEMU_LOG`: Enable QEMU logging (log file is "qemu.log")
+#     - `NET_DUMP`: Enable network packet dump (log file is "netdump.pcap")
+#     - `NET_DEV`: QEMU netdev backend types: user, tap, bridge
+#     - `VFIO_PCI`: PCI device address in the format "bus:dev.func" to passthrough
+#     - `VHOST`: Enable vhost-net for tap backend (only for `NET_DEV=tap`)
+# * Network options:
+#     - `IP`: ArceOS IPv4 address (default is 10.0.2.15 for QEMU user netdev)
+#     - `GW`: Gateway IPv4 address (default is 10.0.2.2 for QEMU user netdev)
 
-OBJS =
-ifeq ($(platform), k210)
-OBJS += $K/entry_k210.o
+# General options
+ARCH ?= x86_64
+PLATFORM ?=
+SMP ?= 1
+MODE ?= release
+LOG ?= warn
+V ?=
+
+# App options
+A ?= apps/helloworld
+APP ?= $(A)
+FEATURES ?=
+APP_FEATURES ?=
+
+# QEMU options
+BLK ?= n
+NET ?= n
+GRAPHIC ?= n
+BUS ?= mmio
+
+DISK_IMG ?= disk.img
+QEMU_LOG ?= n
+NET_DUMP ?= n
+NET_DEV ?= user
+VFIO_PCI ?=
+VHOST ?= n
+
+# Network options
+IP ?= 10.0.2.15
+GW ?= 10.0.2.2
+
+# App type
+ifeq ($(wildcard $(APP)),)
+  $(error Application path "$(APP)" is not valid)
+endif
+
+ifneq ($(wildcard $(APP)/Cargo.toml),)
+  APP_TYPE := rust
 else
-OBJS += $K/entry_qemu.o
+  APP_TYPE := c
 endif
 
-OBJS += \
-  $K/printf.o \
-  $K/kalloc.o \
-  $K/intr.o \
-  $K/spinlock.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/timer.o \
-  $K/disk.o \
-  $K/fat32.o \
-  $K/plic.o \
-  $K/console.o
+# Architecture, platform and target
+ifneq ($(filter $(MAKECMDGOALS),unittest unittest_no_fail_fast),)
+  PLATFORM_NAME :=
+else ifneq ($(PLATFORM),)
+  # `PLATFORM` is specified, override the `ARCH` variables
+  builtin_platforms := $(patsubst platforms/%.toml,%,$(wildcard platforms/*))
+  ifneq ($(filter $(PLATFORM),$(builtin_platforms)),)
+    # builtin platform
+    PLATFORM_NAME := $(PLATFORM)
+    _arch := $(word 1,$(subst -, ,$(PLATFORM)))
+  else ifneq ($(wildcard $(PLATFORM)),)
+    # custom platform, read the "platform" field from the toml file
+    PLATFORM_NAME := $(shell cat $(PLATFORM) | sed -n 's/^platform = "\([a-z0-9A-Z_\-]*\)"/\1/p')
+    _arch := $(shell cat $(PLATFORM) | sed -n 's/^arch = "\([a-z0-9A-Z_\-]*\)"/\1/p')
+  else
+    $(error "PLATFORM" must be one of "$(builtin_platforms)" or a valid path to a toml file)
+  endif
+  ifeq ($(origin ARCH),command line)
+    ifneq ($(ARCH),$(_arch))
+      $(error "ARCH=$(ARCH)" is not compatible with "PLATFORM=$(PLATFORM)")
+    endif
+  endif
+  ARCH := $(_arch)
+endif
 
-ifeq ($(platform), k210)
-OBJS += \
-  $K/spi.o \
-  $K/gpiohs.o \
-  $K/fpioa.o \
-  $K/utils.o \
-  $K/sdcard.o \
-  $K/dmac.o \
-  $K/sysctl.o \
-
+ifeq ($(ARCH), x86_64)
+  # Don't enable kvm for WSL/WSL2.
+  ACCEL ?= $(if $(findstring -microsoft, $(shell uname -r | tr '[:upper:]' '[:lower:]')),n,y)
+  PLATFORM_NAME ?= x86_64-qemu-q35
+  TARGET := x86_64-unknown-none
+  BUS := pci
+else ifeq ($(ARCH), riscv64)
+  ACCEL ?= n
+  PLATFORM_NAME ?= riscv64-qemu-virt
+  TARGET := riscv64gc-unknown-none-elf
+else ifeq ($(ARCH), aarch64)
+  ACCEL ?= n
+  PLATFORM_NAME ?= aarch64-qemu-virt
+  TARGET := aarch64-unknown-none-softfloat
 else
-OBJS += \
-  $K/virtio_disk.o \
-  #$K/uart.o \
-
+  $(error "ARCH" must be one of "x86_64", "riscv64", or "aarch64")
 endif
 
-QEMU = qemu-system-riscv64
+export AX_ARCH=$(ARCH)
+export AX_PLATFORM=$(PLATFORM_NAME)
+export AX_SMP=$(SMP)
+export AX_MODE=$(MODE)
+export AX_LOG=$(LOG)
+export AX_TARGET=$(TARGET)
+export AX_IP=$(IP)
+export AX_GW=$(GW)
 
-ifeq ($(platform), k210)
-RUSTSBI = ./bootloader/SBI/sbi-k210
+# Binutils
+CROSS_COMPILE ?= $(ARCH)-linux-musl-
+CC := $(CROSS_COMPILE)gcc
+AR := $(CROSS_COMPILE)ar
+RANLIB := $(CROSS_COMPILE)ranlib
+LD := rust-lld -flavor gnu
+
+OBJDUMP ?= rust-objdump -d --print-imm-hex --x86-asm-syntax=intel
+OBJCOPY ?= rust-objcopy --binary-architecture=$(ARCH)
+GDB ?= gdb-multiarch
+
+# Paths
+OUT_DIR ?= $(APP)
+
+APP_NAME := $(shell basename $(APP))
+LD_SCRIPT := $(CURDIR)/modules/axhal/linker_$(PLATFORM_NAME).lds
+OUT_ELF := $(OUT_DIR)/$(APP_NAME)_$(PLATFORM_NAME).elf
+OUT_BIN := $(OUT_DIR)/$(APP_NAME)_$(PLATFORM_NAME).bin
+
+all: build
+
+include scripts/make/utils.mk
+include scripts/make/build.mk
+include scripts/make/qemu.mk
+include scripts/make/test.mk
+ifeq ($(PLATFORM_NAME), aarch64-raspi4)
+  include scripts/make/raspi4.mk
+else ifeq ($(PLATFORM_NAME), aarch64-bsta1000b)
+  include scripts/make/bsta1000b-fada.mk
+endif
+
+build: $(OUT_DIR) $(OUT_BIN)
+
+disasm:
+	$(OBJDUMP) $(OUT_ELF) | less
+
+run: build justrun
+
+justrun:
+	$(call run_qemu)
+
+debug: build
+	$(call run_qemu_debug) &
+	sleep 1
+	$(GDB) $(OUT_ELF) \
+	  -ex 'target remote localhost:1234' \
+	  -ex 'b rust_entry' \
+	  -ex 'continue' \
+	  -ex 'disp /16i $$pc'
+
+clippy:
+ifeq ($(origin ARCH), command line)
+	$(call cargo_clippy,--target $(TARGET))
 else
-RUSTSBI = ./bootloader/SBI/sbi-qemu
+	$(call cargo_clippy)
 endif
 
-TOOLPREFIX	:= riscv64-unknown-elf-
-# TOOLPREFIX	:= riscv64-linux-gnu-
-CC = $(TOOLPREFIX)gcc
-AS = $(TOOLPREFIX)gas
-LD = $(TOOLPREFIX)ld
-OBJCOPY = $(TOOLPREFIX)objcopy
-OBJDUMP = $(TOOLPREFIX)objdump
+doc:
+	$(call cargo_doc)
 
-CFLAGS = -Wall -O -fno-omit-frame-pointer -ggdb -g
-CFLAGS += -MD
-CFLAGS += -mcmodel=medany
-CFLAGS += -ffreestanding -fno-common -nostdlib -mno-relax
-CFLAGS += -I.
-CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+doc_check_missing:
+	$(call cargo_doc)
 
-ifeq ($(mode), debug) 
-CFLAGS += -DDEBUG 
-endif 
+fmt:
+	cargo fmt --all
 
-ifeq ($(platform), qemu)
-CFLAGS += -D QEMU
-endif
+fmt_c:
+	@clang-format --style=file -i $(shell find ulib/axlibc -iname '*.c' -o -iname '*.h')
 
-LDFLAGS = -z max-page-size=4096
+test:
+	$(call app_test)
 
-ifeq ($(platform), k210)
-linker = ./linker/k210.ld
-endif
+unittest:
+	$(call unit_test)
 
-ifeq ($(platform), qemu)
-linker = ./linker/qemu.ld
-endif
+unittest_no_fail_fast:
+	$(call unit_test,--no-fail-fast)
 
-# Compile Kernel
-$T/kernel: $(OBJS) $(linker) $U/initcode
-	@if [ ! -d "./target" ]; then mkdir target; fi
-	@$(LD) $(LDFLAGS) -T $(linker) -o $T/kernel $(OBJS)
-	@$(OBJDUMP) -S $T/kernel > $T/kernel.asm
-	@$(OBJDUMP) -t $T/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $T/kernel.sym
-  
-build: $T/kernel userprogs
-
-# Compile RustSBI
-RUSTSBI:
-ifeq ($(platform), k210)
-	@cd ./bootloader/SBI/rustsbi-k210 && cargo build && cp ./target/riscv64gc-unknown-none-elf/debug/rustsbi-k210 ../sbi-k210
-	@$(OBJDUMP) -S ./bootloader/SBI/sbi-k210 > $T/rustsbi-k210.asm
+disk_img:
+ifneq ($(wildcard $(DISK_IMG)),)
+	@printf "$(YELLOW_C)warning$(END_C): disk image \"$(DISK_IMG)\" already exists!\n"
 else
-	@cd ./bootloader/SBI/rustsbi-qemu && cargo build && cp ./target/riscv64gc-unknown-none-elf/debug/rustsbi-qemu ../sbi-qemu
-	@$(OBJDUMP) -S ./bootloader/SBI/sbi-qemu > $T/rustsbi-qemu.asm
+	$(call make_disk_image,fat32,$(DISK_IMG))
 endif
 
-rustsbi-clean:
-	@cd ./bootloader/SBI/rustsbi-k210 && cargo clean
-	@cd ./bootloader/SBI/rustsbi-qemu && cargo clean
+clean: clean_c
+	rm -rf $(APP)/*.bin $(APP)/*.elf
+	cargo clean
 
-image = $T/kernel.bin
-k210 = $T/k210.bin
-k210-serialport := /dev/ttyUSB0
+clean_c::
+	rm -rf ulib/axlibc/build_*
+	rm -rf $(app-objs)
 
-ifndef CPUS
-CPUS := 2
-endif
-
-QEMUOPTS = -machine virt -kernel $T/kernel -m 120M -nographic -append "console=ttyS0"
-
-# use multi-core 
-QEMUOPTS += -smp $(CPUS)
-
-QEMUOPTS += -bios default
-
-# import virtual disk image
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
-
-run: build
-ifeq ($(platform), k210)
-	@$(OBJCOPY) $T/kernel --strip-all -O binary $(image)
-	@$(OBJCOPY) $(RUSTSBI) --strip-all -O binary $(k210)
-	@dd if=$(image) of=$(k210) bs=128k seek=1
-	@$(OBJDUMP) -D -b binary -m riscv $(k210) > $T/k210.asm
-	@sudo chmod 777 $(k210-serialport)
-	@python3 ./tools/kflash.py -p $(k210-serialport) -b 1500000 -t $(k210)
-else
-	@$(QEMU) $(QEMUOPTS)
-endif
-
-$U/initcode: $U/initcode.S
-	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -Ikernel -c $U/initcode.S -o $U/initcode.o
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o $U/initcode.out $U/initcode.o
-	$(OBJCOPY) -S -O binary $U/initcode.out $U/initcode
-	$(OBJDUMP) -S $U/initcode.o > $U/initcode.asm
-
-tags: $(OBJS) _init
-	@etags *.S *.c
-
-ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
-
-_%: %.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
-	$(OBJDUMP) -S $@ > $*.asm
-	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
-
-$U/usys.S : $U/usys.pl
-	@perl $U/usys.pl > $U/usys.S
-
-$U/usys.o : $U/usys.S
-	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
-
-$U/_forktest: $U/forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
-	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
-
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
-.PRECIOUS: %.o
-
-UPROGS=\
-	$U/_init\
-	$U/_sh\
-	$U/_cat\
-	$U/_echo\
-	$U/_grep\
-	$U/_ls\
-	$U/_kill\
-	$U/_mkdir\
-	$U/_xargs\
-	$U/_sleep\
-	$U/_find\
-	$U/_rm\
-	$U/_wc\
-	$U/_test\
-	$U/_usertests\
-	$U/_strace\
-	$U/_mv\
-
-	# $U/_forktest\
-	# $U/_ln\
-	# $U/_stressfs\
-	# $U/_grind\
-	# $U/_zombie\
-
-userprogs: $(UPROGS)
-
-dst=/mnt
-
-# @sudo cp $U/_init $(dst)/init
-# @sudo cp $U/_sh $(dst)/sh
-# Make fs image
-fs: $(UPROGS)
-	@if [ ! -f "fs.img" ]; then \
-		echo "making fs image..."; \
-		dd if=/dev/zero of=fs.img bs=512k count=512; \
-		mkfs.vfat -F 32 fs.img; fi
-	@sudo mount fs.img $(dst)
-	@if [ ! -d "$(dst)/bin" ]; then sudo mkdir $(dst)/bin; fi
-	@sudo cp README $(dst)/README
-	@for file in $$( ls $U/_* ); do \
-		sudo cp $$file $(dst)/$${file#$U/_};\
-		sudo cp $$file $(dst)/bin/$${file#$U/_}; done
-	@sudo umount $(dst)
-
-# Write mounted sdcard
-sdcard: userprogs
-	@if [ ! -d "$(dst)/bin" ]; then sudo mkdir $(dst)/bin; fi
-	@for file in $$( ls $U/_* ); do \
-		sudo cp $$file $(dst)/bin/$${file#$U/_}; done
-	@sudo cp $U/_init $(dst)/init
-	@sudo cp $U/_sh $(dst)/sh
-	@sudo cp README $(dst)/README
-
-clean: 
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
-	$T/* \
-	$U/initcode $U/initcode.out \
-	$K/kernel \
-	.gdbinit \
-	$U/usys.S \
-	$(UPROGS)
+.PHONY: all build disasm run justrun debug clippy fmt fmt_c test test_no_fail_fast clean clean_c doc disk_image

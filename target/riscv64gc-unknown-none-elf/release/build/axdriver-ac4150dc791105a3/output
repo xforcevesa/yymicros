@@ -1,0 +1,2 @@
+cargo:rustc-cfg=bus="mmio"
+cargo:rustc-cfg=block_dev="virtio-blk"

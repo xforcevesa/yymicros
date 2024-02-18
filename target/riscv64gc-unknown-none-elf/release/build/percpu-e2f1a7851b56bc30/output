@@ -1,0 +1,2 @@
+cargo:rustc-link-arg-tests=-no-pie
+cargo:rustc-link-arg-tests=-T/home/nomodeset/arceos/crates/percpu/test_percpu.x
