@@ -24,3 +24,7 @@ actual.out
 qemu.log
 rusty-tags.v
 *.json
+*-cross
+*.tgz
+*.tar*
+/riscv64-linux
