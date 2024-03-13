@@ -21,3 +21,4 @@ user/usys.S
 .*
 *.a
 *toolchain
+riscv64-linux/riscv-gnu-toolchain
