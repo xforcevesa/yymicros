@@ -16,3 +16,7 @@ kernel/kernel
 user/usys.S
 .gdbinit
 .vscode
+/target
+*.json
+.*
+*.a
