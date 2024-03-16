@@ -9,5 +9,8 @@ ArceOS is a modular Unikernel Operating system. Is solves the following problems
 3. **Ecosystem**: It is primarily supported the most of Linux system call, the C language library and standard libraries. Also, it is able to be easily extended to a monolithic or micro kernel for specific use.
 4. **Modularity**: Fully customizability is the future tendency in the development of operating systems. 
 
+Legacy ArceOS Documentation can be seen [here](arceos_doc/README.md).
+
 Based on this, we designed this yymicros kernel and its infrastructures.
 
+This Documentation contains our comprehension for structure of ArceOS. We used its main components and extended it so as to make it compatible to multiple Linux applications and toolkits, such as busybox, Lua, iperf and so on.
