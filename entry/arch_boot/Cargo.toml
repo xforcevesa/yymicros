@@ -1,0 +1,43 @@
+[package]
+name = "arch_boot"
+version = "0.1.0"
+edition = "2021"
+authors = ["Youjie Zheng <zyj578335934@gmail.com>"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+monolithic = ["alloc", "dep:linux_syscall_api", "axtrap/monolithic"]
+alloc = ["dep:axalloc"]
+smp = ["axruntime/smp"]
+irq = ["axtrap/irq"]
+fp_simd = []
+
+default = []
+
+[dependencies]
+cfg-if = "1.0"
+log = "0.4"
+linux_syscall_api = { path = "../../api/linux_syscall_api", optional = true }
+axhal = { path = "../../modules/axhal" }
+axtrap = { path = "../axtrap" }
+axruntime = { path = "../../modules/axruntime" }
+axconfig = { path = "../../modules/axconfig" }
+axalloc = { path = "../../modules/axalloc", optional = true }
+axlog = { path = "../../modules/axlog" }
+
+[build-dependencies]
+axconfig = { path = "../../modules/axconfig" }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86 = "0.52"
+x86_64 = "0.14"
+raw-cpuid = "11.0"
+
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
+riscv = "0.10"
+sbi-rt = { version = "0.0.2", features = ["legacy"] }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = "9.3"
+of = { path = "../../crates/of"}
+tock-registers = "0.8"

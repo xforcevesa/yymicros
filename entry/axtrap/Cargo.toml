@@ -1,0 +1,35 @@
+[package]
+name = "axtrap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+monolithic = ["dep:linux_syscall_api"]
+irq = []
+preempt = ["axtask/preempt", "percpu/preempt", "kernel_guard/preempt"]
+
+[dependencies]
+axlog = { path = "../../modules/axlog" }
+cfg-if = "1.0"
+log = "0.4"
+linux_syscall_api = { path = "../../api/linux_syscall_api", optional = true }
+handler_table = { path = "../../crates/handler_table" }
+lazy_init = { path = "../../crates/lazy_init" }
+axhal = { path = "../../modules/axhal" }
+axtask = { path = "../../modules/axtask", optional = true }
+kernel_guard = { path = "../../crates/kernel_guard" }
+percpu = { path = "../../crates/percpu" }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86 = "0.52"
+x86_64 = "0.14"
+
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
+riscv = "0.10"
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = "9.3"
+tock-registers = "0.8"
