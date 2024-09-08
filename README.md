@@ -22,10 +22,11 @@ It'll be a fun project to work on and a composition for the oscomp2025.
 Providing you're to run os1:
 
 ```bash
-git clone https://github.com/rustsbi/rustsbi-qemu
-cd rustsbi-qemu
-cargo test
-cd ../os1
+rustup target add riscv64gc-unknown-none-elf
+cargo install cargo-binutils
+rustup component add llvm-tools-preview
+wget https://github.com/rustsbi/rustsbi-qemu/releases/download/v0.1.1/rustsbi-qemu-release.zip
+unzip rustsbi-qemu-release.zip
 make run
 ```
 

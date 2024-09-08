@@ -2,7 +2,6 @@
 _*
 *.o
 *.d
-*.asm
 *.sym
 *.img
 *.elf
@@ -23,7 +22,6 @@ user/usys.S
 target
 .vscode
 .DS_Store
-*.asm
 *.img
 actual.out
 qemu.log
@@ -33,3 +31,5 @@ rusty-tags.v
 *.tgz
 *.tar*
 /riscv64-linux
+!*.asm
+!.cargo
