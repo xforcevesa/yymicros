@@ -13,7 +13,8 @@ mod page_table;
 
 pub use address::{PhysAddr, PhysPageNum, VirtAddr, VirtPageNum};
 use address::{StepByOne, VPNRange};
-pub use frame_allocator::{frame_alloc, FrameTracker};
+pub use heap_allocator::heap_test;
+pub use frame_allocator::{frame_alloc, FrameTracker, frame_allocator_test};
 pub use memory_set::remap_test;
 #[allow(unused)]
 pub use memory_set::{MapPermission, MemorySet, KERNEL_SPACE};

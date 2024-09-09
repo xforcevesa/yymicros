@@ -37,6 +37,8 @@ pub fn rust_main() -> ! {
     println!("Hello World!");
     mem::init();
     mem::remap_test();
+    mem::frame_allocator_test();
+    mem::heap_test();
     panic!("System Shutdown");
 }
 
