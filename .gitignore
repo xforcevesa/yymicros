@@ -34,3 +34,4 @@ rusty-tags.v
 !*.asm
 !.cargo
 /rustsbi-qemu*
+link_app.S

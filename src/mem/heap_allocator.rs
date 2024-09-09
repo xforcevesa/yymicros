@@ -22,7 +22,7 @@ pub fn init_heap() {
     }
 }
 
-#[allow(unused)]
+/// Test the heap
 pub fn heap_test() {
     use alloc::boxed::Box;
     use alloc::vec::Vec;

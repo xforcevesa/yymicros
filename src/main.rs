@@ -17,6 +17,10 @@ mod panic;
 mod config;
 mod mem;
 mod sync;
+mod task;
+mod trap;
+mod syscall;
+mod loader;
 
 #[macro_use]
 extern crate bitflags;
@@ -39,7 +43,14 @@ pub fn rust_main() -> ! {
     mem::remap_test();
     mem::frame_allocator_test();
     mem::heap_test();
-    panic!("System Shutdown");
+    task::add_initproc();
+    println!("after initproc!");
+    trap::init();
+    trap::enable_timer_interrupt();
+    time::set_next_trigger();
+    loader::list_apps();
+    task::run_tasks();
+    panic!("Unreachable in rust_main!");
 }
 
 
