@@ -33,3 +33,4 @@ rusty-tags.v
 /riscv64-linux
 !*.asm
 !.cargo
+/rustsbi-qemu*

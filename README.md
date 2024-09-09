@@ -22,6 +22,7 @@ It'll be a fun project to work on and a composition for the oscomp2025.
 Providing you're to run os1:
 
 ```bash
+rustup default nightly
 rustup target add riscv64gc-unknown-none-elf
 cargo install cargo-binutils
 rustup component add llvm-tools-preview
