@@ -19,7 +19,7 @@ It'll be a fun project to work on and a composition for the oscomp2025.
 
 ## Running Steps
 
-Providing you're to run os1:
+You should install a rustup and riscv64-unknown-elf-gcc toolchain, ensuring they are in your PATH.
 
 ```bash
 rustup default nightly

@@ -1,5 +1,6 @@
 build:
-	LOG=ERROR cargo build --release
+	cd user && bash compile.sh && cd ..
+	LOG=TRACE cargo build --release
 	rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary target/riscv64gc-unknown-none-elf/release/os.bin
 
 run: build

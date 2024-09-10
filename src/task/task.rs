@@ -273,6 +273,13 @@ impl TaskControlBlock {
         }
         p
     }
+
+    /// Accumulate stride
+    pub fn accumulate_stride(self: &mut Arc<Self>) {
+        unsafe {
+            Arc::get_mut_unchecked(self).stride.accumulate();
+        }
+    }
 }
 
 pub struct Stride {
@@ -292,7 +299,13 @@ impl PartialEq for Stride {
 
 impl PartialOrd for Stride {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        PartialOrd::partial_cmp(&self.stride, &other.stride)
+        // Await for check.
+        match PartialOrd::partial_cmp(&self.stride, &other.stride) {
+            Some(Ordering::Equal) => Some(Ordering::Equal),
+            Some(Ordering::Less) => Some(Ordering::Greater),
+            Some(Ordering::Greater) => Some(Ordering::Less),
+            None => None
+        }
     }
 }
 
@@ -301,14 +314,14 @@ impl Stride {
         Self {
             stride: 0,
             priority: 16,
-            big_stride: 0x100000000
+            big_stride: 0x1000
         }
     }
     pub fn set_priority(&mut self, p: usize) {
         self.priority = p;
     }
-    #[allow(unused)]
     pub fn accumulate(&mut self) {
+        // Potential BUG here.
         self.stride += self.big_stride / self.priority
     }
 }

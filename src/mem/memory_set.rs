@@ -44,12 +44,10 @@ impl MemorySet {
             areas: Vec::new(),
         }
     }
-    #[allow(unused)]
     /// Get the page table token
     pub fn token(&self) -> usize {
         self.page_table.token()
     }
-    #[allow(unused)]
     /// Assume that no conflicts.
     pub fn insert_framed_area(
         &mut self,
@@ -62,7 +60,6 @@ impl MemorySet {
             None,
         );
     }
-    #[allow(unused)]
     /// remove a area
     pub fn remove_area_with_start_vpn(&mut self, start_vpn: VirtPageNum) {
         if let Some((idx, area)) = self
@@ -158,7 +155,6 @@ impl MemorySet {
         );
         memory_set
     }
-    #[allow(unused)]
     /// Include sections in elf and trampoline and TrapContext and user stack,
     /// also returns user_sp_base and entry point.
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
@@ -237,7 +233,6 @@ impl MemorySet {
             elf.header.pt2.entry_point() as usize,
         )
     }
-    #[allow(unused)]
     /// Create a new address space by copy code&data from a exited process's address space.
     pub fn from_existed_user(user_space: &Self) -> Self {
         let mut memory_set = Self::new_bare();
@@ -266,20 +261,17 @@ impl MemorySet {
             asm!("sfence.vma");
         }
     }
-    #[allow(unused)]
     /// Translate a virtual page number to a page table entry
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
 
-    #[allow(unused)]
     ///Remove all `MapArea`
     pub fn recycle_data_pages(&mut self) {
         self.areas.clear();
     }
 
     /// shrink the area to new_end
-    #[allow(unused)]
     pub fn shrink_to(&mut self, start: VirtAddr, new_end: VirtAddr) -> bool {
         if let Some(area) = self
             .areas
@@ -294,7 +286,6 @@ impl MemorySet {
     }
 
     /// append the area to new_end
-    #[allow(unused)]
     pub fn append_to(&mut self, start: VirtAddr, new_end: VirtAddr) -> bool {
         if let Some(area) = self
             .areas
@@ -308,7 +299,6 @@ impl MemorySet {
         }
     }
 
-    #[allow(unused)]
     /// Ferform mmap operation.
     pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
         // Fixed: Test 04_4 test
@@ -361,7 +351,6 @@ impl MemorySet {
         0
     }
 
-    #[allow(unused)]
     /// Ferform munmap operation.
     pub fn munmap(&mut self, start: usize, len: usize) -> isize {
         // Convert into VirtAddr
@@ -459,14 +448,12 @@ impl MapArea {
             self.unmap_one(page_table, vpn);
         }
     }
-    #[allow(unused)]
     pub fn shrink_to(&mut self, page_table: &mut PageTable, new_end: VirtPageNum) {
         for vpn in VPNRange::new(new_end, self.vpn_range.get_end()) {
             self.unmap_one(page_table, vpn)
         }
         self.vpn_range = VPNRange::new(self.vpn_range.get_start(), new_end);
     }
-    #[allow(unused)]
     pub fn append_to(&mut self, page_table: &mut PageTable, new_end: VirtPageNum) {
         for vpn in VPNRange::new(self.vpn_range.get_end(), new_end) {
             self.map_one(page_table, vpn)
@@ -519,9 +506,8 @@ bitflags! {
 }
 
 /// remap test in kernel space
-#[allow(unused)]
 pub fn remap_test() {
-    let mut kernel_space = KERNEL_SPACE.exclusive_access();
+    let kernel_space = KERNEL_SPACE.exclusive_access();
     let mid_text: VirtAddr = ((stext as usize + etext as usize) / 2).into();
     let mid_rodata: VirtAddr = ((srodata as usize + erodata as usize) / 2).into();
     let mid_data: VirtAddr = ((sdata as usize + edata as usize) / 2).into();

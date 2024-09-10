@@ -52,7 +52,6 @@ lazy_static! {
     };
 }
 
-#[allow(unused)]
 ///get app data from name
 pub fn get_app_data_by_name(name: &str) -> Option<&'static [u8]> {
     let num_app = get_num_app();

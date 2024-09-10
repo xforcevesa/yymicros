@@ -2,16 +2,15 @@ use std::io::{Result, Write};
 use std::fs::{File, read_dir};
 
 fn main() {
-    println!("cargo:rerun-if-changed=./user/src/");
     println!("cargo:rerun-if-changed={}", TARGET_PATH);
     insert_app_data().unwrap();
 }
 
-static TARGET_PATH: &str = "./user/build/elf/";
+static TARGET_PATH: &str = "./user/elf/";
 
 fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();
-    let mut apps: Vec<_> = read_dir("./user/build/elf")
+    let mut apps: Vec<_> = read_dir("./user/elf")
         .unwrap()
         .into_iter()
         .map(|dir_entry| {

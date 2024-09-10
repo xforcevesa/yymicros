@@ -4,14 +4,12 @@ pub fn console_putchar(c: usize) {
     sbi_rt::legacy::console_putchar(c);
 }
 
-#[allow(unused)]
 /// Invoke SBI call to get char
 pub fn console_getchar() -> usize {
     #[allow(deprecated)]
     sbi_rt::legacy::console_getchar()
 }
 
-#[allow(unused)]
 /// Invoke SBI call to set timer
 pub fn set_timer(timer: usize) {
     #[allow(deprecated)]
