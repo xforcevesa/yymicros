@@ -163,7 +163,14 @@ lazy_static! {
     ));
 }
 
-///Add init process to the manager
+/// Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+/// Add user app to the manager
+pub fn add_user_app(app_name: &str) {
+    let app_data = get_app_data_by_name(app_name).unwrap();
+    let task = TaskControlBlock::new(app_data);
+    add_task(Arc::new(task));
 }
