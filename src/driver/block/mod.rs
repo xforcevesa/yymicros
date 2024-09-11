@@ -21,17 +21,18 @@ pub fn block_device_test() {
     let block_device = BLOCK_DEVICE.clone();
     let mut write_buffer = [0u8; 512];
     let mut read_buffer = [0u8; 512];
-    println!("Test block device read/write");
-    for i in 0..131 {
-        block_device.read_block(i as usize, &mut read_buffer);
+    let block_count = block_device.block_count();
+    let block_size = block_device.block_size();
+    println!("Block Count: {}, Block Size: {}", block_count, block_size);
+    for i in 0..block_count {
+        assert!(block_device.read_block(i as usize, &mut read_buffer));
         if i % 40 == 0 {
-            println!("test block {}, read data: {:x?}", i, &read_buffer[0..8]);
+            println!("Test block {}, read data: {:x?}", i, &read_buffer[0..8]);
         }
         for index in 0..512 {
             write_buffer[index] = read_buffer[index];
         }
-        block_device.write_block(i as usize, &write_buffer);
-        assert_eq!(write_buffer, read_buffer);
+        assert!(block_device.write_block(i as usize, &write_buffer));
     }
     println!("block device test passed!");
 }

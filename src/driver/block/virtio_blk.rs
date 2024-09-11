@@ -7,6 +7,25 @@ use crate::sync::UPSafeCell;
 use alloc::vec::Vec;
 use lazy_static::*;
 use virtio_drivers::{Hal, VirtIOBlk, VirtIOHeader};
+use volatile::Volatile;
+
+#[repr(C)]
+#[derive(Debug)]
+struct BlkConfig {
+    /// Number of 512 Bytes sectors
+    capacity: Volatile<u64>,
+    size_max: Volatile<u32>,
+    seg_max: Volatile<u32>,
+    cylinders: Volatile<u16>,
+    heads: Volatile<u8>,
+    sectors: Volatile<u8>,
+    blk_size: Volatile<u32>,
+    physical_block_exp: Volatile<u8>,
+    alignment_offset: Volatile<u8>,
+    min_io_size: Volatile<u16>,
+    opt_io_size: Volatile<u32>,
+    // ... ignored
+}
 
 /// The base address of control registers in Virtio_Block device
 #[allow(unused)]
@@ -19,18 +38,37 @@ lazy_static! {
 }
 
 impl BlockDevice for VirtIOBlock {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-        self.0
+    
+    fn read_block(&self, block_id: usize, buf: &mut [u8]) -> bool {
+        match self.0
             .exclusive_access()
-            .read_block(block_id, buf)
-            .expect("Error when reading VirtIOBlk");
+            .read_block(block_id, buf) {
+                Ok(_) => true,
+                Err(_) => false,
+            }
     }
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
-        self.0
+
+    fn write_block(&self, block_id: usize, buf: &[u8]) -> bool {
+        match self.0
             .exclusive_access()
-            .write_block(block_id, buf)
-            .expect("Error when writing VirtIOBlk");
+            .write_block(block_id, buf) {
+                Ok(_) => true,
+                Err(_) => false,
+            }
     }
+    
+    fn block_count(&self) -> usize {
+        let header = unsafe { & *(VIRTIO0 as *mut VirtIOHeader) };
+        let config = unsafe { & *(header.config_space() as *const BlkConfig) };
+        config.capacity.read() as usize
+    }
+    
+    fn block_size(&self) -> usize {
+        let header = unsafe { & *(VIRTIO0 as *mut VirtIOHeader) };
+        let config = unsafe { & *(header.config_space() as *const BlkConfig) };
+        config.blk_size.read() as usize
+    }
+    
 }
 
 impl VirtIOBlock {

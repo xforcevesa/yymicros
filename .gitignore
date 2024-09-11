@@ -36,3 +36,4 @@ rusty-tags.v
 /rustsbi-qemu*
 link_app.S
 /2024s-*
+/log.txt

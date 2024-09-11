@@ -74,6 +74,7 @@ dependencies = [
  "sbi-rt",
  "spin 0.7.1",
  "virtio-drivers",
+ "volatile 0.2.7",
  "xmas-elf",
 ]
 
@@ -195,8 +196,14 @@ source = "git+https://github.com/rcore-os/virtio-drivers?rev=4ee80e5#4ee80e50bab
 dependencies = [
  "bitflags",
  "log",
- "volatile",
+ "volatile 0.3.0",
 ]
+
+[[package]]
+name = "volatile"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6b06ad3ed06fef1713569d547cdbdb439eafed76341820fb0e0344f29a41945"
 
 [[package]]
 name = "volatile"
