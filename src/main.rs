@@ -50,7 +50,7 @@ pub fn rust_main() -> ! {
     trap::enable_timer_interrupt();
     time::set_next_trigger();
     loader::list_apps();
-    task::add_user_app("fork_syscall");
+    task::add_user_app("hello_syscall");
     task::run_tasks();
     panic!("Unreachable in rust_main!");
 }

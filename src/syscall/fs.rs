@@ -1,6 +1,6 @@
 //! File and filesystem-related syscalls
 use crate::mem::translated_byte_buffer;
-use crate::sbi::console_getchar;
+use crate::sbi::{console_getchar, console_putchar};
 use crate::task::{current_task, current_user_token, suspend_current_and_run_next};
 
 const FD_STDIN: usize = 0;
@@ -27,23 +27,40 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_read", current_task().unwrap().pid.0);
     match fd {
         FD_STDIN => {
-            assert_eq!(len, 1, "Only support len = 1 in sys_read!");
-            let mut c: usize;
-            loop {
-                c = console_getchar();
-                if c == 0 {
-                    suspend_current_and_run_next();
-                    continue;
-                } else {
+            let mut bytes_read: isize = 0;
+            let mut buffers = translated_byte_buffer(current_user_token(), buf, len);
+
+            // Ensure that len is non-zero
+            assert!(len > 0, "Length should be greater than 0!");
+
+            // println!("len: {}, buffers: {:?}, buffers[0]: {:?}, buffers[0].len(): {}", len, buffers, buffers[0], buffers[0].len());
+
+            for i in 0..len {
+                let mut c: usize;
+                loop {
+                    c = console_getchar(); // Get the next character from the console
+                    if c == 0 {
+                        // Suspend current task if no input and switch to another task
+                        suspend_current_and_run_next();
+                        continue;
+                    } else {
+                        console_putchar(c); // Echo the character back to the console
+                        break;
+                    }
+                }
+                let ch = c as u8;
+                unsafe {
+                    buffers[0].as_mut_ptr().add(i).write_volatile(ch); // Write the character into the buffer
+                }
+                bytes_read += 1; // Increment the number of bytes read
+
+                if ch == b'\n' || ch == b'\r' || bytes_read >= len as isize {
+                    // Stop reading on newline character
                     break;
                 }
             }
-            let ch = c as u8;
-            let mut buffers = translated_byte_buffer(current_user_token(), buf, len);
-            unsafe {
-                buffers[0].as_mut_ptr().write_volatile(ch);
-            }
-            1
+            // println!("Read Complete");
+            bytes_read // Return the number of characters read
         }
         _ => {
             panic!("Unsupported fd in sys_read!");

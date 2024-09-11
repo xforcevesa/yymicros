@@ -1,69 +1,71 @@
-// Define system call numbers for RISC-V
-#define SYSCALL_FORK 220
-#define SYSCALL_WRITE 64
-#define SYSCALL_EXIT 93
+// Define syscall numbers for RISC-V
+#define SYS_fork    220
+#define SYS_waitpid 260
+#define SYS_getpid  172
+#define SYS_write   64
+#define SYS_exit    93
 
-// Inline assembly function for `fork` syscall
-static inline long syscall_fork() {
+// Syscall wrapper function
+static inline long syscall(long syscall_num, long arg1, long arg2, long arg3) {
     long ret;
     asm volatile (
-        "mv a7, %[syscall_num]\n"   // Move syscall number to a7
-        "ecall\n"                   // Make the syscall
-        "mv %[ret], a0\n"           // Store return value (PID or 0 for child) in ret
-        : [ret] "=r" (ret)
-        : [syscall_num] "r" (SYSCALL_FORK)
-        : "a0", "a7"
-    );
-    return ret;
-}
-
-// Inline assembly function for `write` syscall
-static inline long syscall_write(int fd, const char *buf, long count) {
-    long ret;
-    asm volatile (
-        "mv a7, %[syscall_num]\n"   // Move syscall number to a7
-        "mv a0, %[fd]\n"            // Move file descriptor to a0 (stdout = 1)
-        "mv a1, %[buf]\n"           // Move buffer address to a1
-        "mv a2, %[count]\n"         // Move number of bytes to write to a2
-        "ecall\n"                   // Make the syscall
-        "mv %[ret], a0\n"           // Store return value (number of bytes written) in ret
-        : [ret] "=r" (ret)
-        : [syscall_num] "r" (SYSCALL_WRITE), [fd] "r" (fd), [buf] "r" (buf), [count] "r" (count)
+        "mv a7, %1\n"   // Move syscall number to a7
+        "mv a0, %2\n"   // Move arg1 to a0
+        "mv a1, %3\n"   // Move arg2 to a1
+        "mv a2, %4\n"   // Move arg3 to a2
+        "ecall\n"       // Trigger syscall with ecall
+        "mv %0, a0\n"   // Move the return value from a0 to ret
+        : "=r" (ret)
+        : "r" (syscall_num), "r" (arg1), "r" (arg2), "r" (arg3)
         : "a0", "a1", "a2", "a7"
     );
     return ret;
 }
 
-// Inline assembly function for `exit` syscall
-static inline void syscall_exit(int exit_code) {
-    asm volatile (
-        "mv a7, %[syscall_num]\n"   // Move syscall number to a7
-        "mv a0, %[exit_code]\n"     // Move exit code to a0
-        "ecall\n"                   // Make the syscall
-        :
-        : [syscall_num] "r" (SYSCALL_EXIT), [exit_code] "r" (exit_code)
-        : "a0", "a7"
-    );
+// Write system call wrapper
+static inline long write(int fd, const char *buf, int count) {
+    return syscall(SYS_write, fd, (long)buf, count);
+}
+
+// Fork system call wrapper
+static inline long fork() {
+    return syscall(SYS_fork, 0, 0, 0);
+}
+
+// Waitpid system call wrapper
+static inline long waitpid(int pid, int *wstatus, int options) {
+    return syscall(SYS_waitpid, pid, (long)wstatus, options);
+}
+
+// Getpid system call wrapper
+static inline long getpid() {
+    return syscall(SYS_getpid, 0, 0, 0);
+}
+
+// Exit system call wrapper
+static inline void exit(int status) {
+    syscall(SYS_exit, status, 0, 0);
 }
 
 int main() {
-    long pid = syscall_fork();
+    const char *msg_parent = "Hello from parent process!\n";
+    const char *msg_child = "Hello from child process!\n";
+    long pid = fork();  // Call fork
 
-    // Buffer for messages
-    const char parent_msg[] = "This is the parent process\n";
-    const char child_msg[] = "This is the child process\n";
-
-    if (pid > 0) {
-        // Parent process (pid > 0)
-        syscall_write(1, parent_msg, sizeof(parent_msg));  // Write parent message to stdout
-    } else if (pid == 0) {
-        // Child process (pid == 0)
-        syscall_write(1, child_msg, sizeof(child_msg));   // Write child message to stdout
+    if (pid == 0) {
+        // Child process
+        long child_pid = getpid();  // Get child PID
+        write(1, msg_child, 26);    // Write to stdout (fd 1)
+        exit(0);                    // Exit child process
+    } else if (pid > 0) {
+        // Parent process
+        int wstatus;
+        waitpid(pid, &wstatus, 0);  // Wait for child to exit
+        long parent_pid = getpid(); // Get parent PID
+        write(1, msg_parent, 27);   // Write to stdout (fd 1)
     } else {
-        // Fork failed (pid < 0), exit with error code
-        syscall_exit(1);
+        // Fork failed
+        exit(1);  // Exit with error
     }
-
-    syscall_exit(0);  // Exit the process
-    return 0;         // This will never be reached
+    return 0;
 }
