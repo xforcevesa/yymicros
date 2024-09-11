@@ -8,7 +8,9 @@ run: build
     -machine virt \
     -nographic \
     -bios ./rustsbi-qemu.bin \
-    -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000
+    -kernel target/riscv64gc-unknown-none-elf/release/os.bin \
+	-drive file=rustsbi-qemu.bin,if=none,format=raw,id=x0 \
+	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 clean:
 	cargo clean

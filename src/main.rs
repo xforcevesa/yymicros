@@ -10,7 +10,7 @@
 #![feature(get_mut_unchecked)]
 
 #[macro_use]
-mod console;
+mod driver;
 mod time;
 mod sbi;
 mod panic;
@@ -21,6 +21,7 @@ mod task;
 mod trap;
 mod syscall;
 mod loader;
+mod vfs;
 
 #[macro_use]
 extern crate bitflags;
@@ -44,6 +45,7 @@ pub fn rust_main() -> ! {
     mem::remap_test();
     mem::frame_allocator_test();
     mem::heap_test();
+    driver::block_device_test();
     task::add_initproc();
     println!("after initproc!");
     trap::init();

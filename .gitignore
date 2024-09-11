@@ -35,3 +35,4 @@ rusty-tags.v
 !.cargo
 /rustsbi-qemu*
 link_app.S
+/2024s-*
