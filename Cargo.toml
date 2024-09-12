@@ -16,3 +16,15 @@ xmas-elf = "0.7.0"
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4ee80e5" }
 spin = "0.7.1"
 volatile = "0.2.7"
+# lazy-init = "0.2.0"
+
+[dependencies.fatfs]
+git = "https://github.com/rafalh/rust-fatfs"
+rev = "85f06e0"
+default-features = false
+features = [ # no std
+    "alloc",
+    "lfn",
+    "log_level_trace",
+    "unicode",
+]

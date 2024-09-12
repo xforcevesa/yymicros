@@ -33,12 +33,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "bitflags"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+
+[[package]]
 name = "buddy_system_allocator"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4e85e760e105b46ae0bd1236578793c6c147ae7463fe95c8350296b8bfcb830"
 dependencies = [
  "spin 0.7.1",
+]
+
+[[package]]
+name = "fatfs"
+version = "0.4.0"
+source = "git+https://github.com/rafalh/rust-fatfs?rev=85f06e0#85f06e08edbd3368e1b0562f2fc1b6d178bf7b8a"
+dependencies = [
+ "bitflags 2.6.0",
+ "log",
 ]
 
 [[package]]
@@ -66,8 +81,9 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 name = "os"
 version = "0.1.0"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "buddy_system_allocator",
+ "fatfs",
  "lazy_static",
  "log",
  "riscv",
@@ -114,7 +130,7 @@ source = "git+https://github.com/rcore-os/riscv#11d43cf7cccb3b62a3caaf3e07a1db74
 dependencies = [
  "bare-metal",
  "bit_field",
- "bitflags",
+ "bitflags 1.3.2",
  "log",
  "riscv-target",
 ]
@@ -194,7 +210,7 @@ name = "virtio-drivers"
 version = "0.1.0"
 source = "git+https://github.com/rcore-os/virtio-drivers?rev=4ee80e5#4ee80e50babd681869f428ee026167bc12dc6856"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "log",
  "volatile 0.3.0",
 ]

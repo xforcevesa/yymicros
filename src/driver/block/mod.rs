@@ -16,6 +16,7 @@ lazy_static! {
     pub static ref BLOCK_DEVICE: Arc<dyn BlockDevice> = Arc::new(BlockDeviceImpl::new());
 }
 
+#[allow(unused)]
 /// Test the block device
 pub fn block_device_test() {
     let block_device = BLOCK_DEVICE.clone();
