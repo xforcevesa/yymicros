@@ -32,6 +32,8 @@ extern crate log;
 // #[allow(missing_docs)]
 extern crate alloc;
 
+extern crate fatfs;
+
 use core::arch::global_asm;
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
@@ -45,7 +47,11 @@ pub fn rust_main() -> ! {
     mem::remap_test();
     mem::frame_allocator_test();
     mem::heap_test();
-    driver::block_device_test();
+    // driver::block_device_test();
+    vfs::disk_device_test();
+    vfs::test_path_canonicalize();
+    vfs::init_rootfs_on_disk();
+    vfs::fs_test();
     task::add_initproc();
     println!("after initproc!");
     trap::init();
