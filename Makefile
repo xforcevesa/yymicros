@@ -8,11 +8,17 @@ build:
 run: build
 	qemu-system-riscv64 \
     -machine virt \
-    -nographic \
+	-serial mon:stdio \
     -bios ./rustsbi-qemu.bin \
     -kernel target/riscv64gc-unknown-none-elf/release/os.bin \
 	-drive file=disk.img,if=none,format=raw,id=x0 \
-	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
+	-device virtio-gpu-device,bus=virtio-mmio-bus.1 \
+	-device virtio-mouse-device,bus=virtio-mmio-bus.2 \
+	-device virtio-net-device,netdev=net0,bus=virtio-mmio-bus.3 \
+	-netdev user,id=net0,hostfwd=tcp::5555-:5555 \
+	-device virtio-sound-device,audiodev=audio0,bus=virtio-mmio-bus.4 \
+	-audiodev alsa,id=audio0
 
 clean:
 	cargo clean
