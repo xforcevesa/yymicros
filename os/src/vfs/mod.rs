@@ -1,6 +1,5 @@
 mod device;
 mod fs;
-mod fat;
 mod err;
 mod structs;
 mod paths;

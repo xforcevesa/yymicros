@@ -2,12 +2,19 @@
 //!
 //! TODO: it doesn't work very well if the mount points have containment relationships.
 
+mod fat;
+mod ext4;
+
+use core::assert_matches::assert_matches;
+
 use alloc::{
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
 use alloc::vec;
+use fat::FatFileSystem;
+use ext4::Ext4FileSystem;
 use super::err::{DevError, DevResult};
 use super::{VfsNodeAttr, VfsNodeOps, VfsNodeRef, VfsNodeType, VfsOps};
 use spin::Mutex;
@@ -160,10 +167,21 @@ impl VfsNodeOps for RootDirectory {
 }
 
 pub fn init_rootfs(disk: &crate::vfs::device::Disk) {
-    static FAT_FS: LazyInit<Arc<super::fat::FatFileSystem>> = LazyInit::new();
-    FAT_FS.init_by(Arc::new(super::fat::FatFileSystem::new(disk.clone())));
-    FAT_FS.init();
-    let main_fs = FAT_FS.clone();
+    #[cfg(not(feature = "ext4"))]
+    let use_fatfs = true; // TODO: detect file system type from disk
+    #[cfg(feature = "ext4")]
+    let use_fatfs = false; // TODO: detect file system type from disk
+    let main_fs: Arc<dyn VfsOps> = if use_fatfs{
+        static FAT_FS: LazyInit<Arc<FatFileSystem>> = LazyInit::new();
+        FAT_FS.init_by(Arc::new(FatFileSystem::new(disk.clone())));
+        FAT_FS.init();
+        FAT_FS.clone()
+    } else {
+        static EXT4_FS: LazyInit<Arc<Ext4FileSystem>> = LazyInit::new();
+        EXT4_FS.init_by(Arc::new(Ext4FileSystem::new(disk.clone())));
+        // EXT4_FS.init();
+        EXT4_FS.clone()
+    };
 
     let root_dir = RootDirectory::new(main_fs);
 
@@ -212,29 +230,42 @@ pub fn create_file(dir: Option<&VfsNodeRef>, path: &str) -> DevResult<VfsNodeRef
     parent.lookup(path)
 }
 
-pub fn create_file_by_str(dir: &str, path: &str) -> DevResult<VfsNodeRef> {
+pub fn create_file_by_str(dir: &str, path: &str) -> DevResult {
     let root = &(ROOT_DIR.as_ref().main_fs.root_dir());
     let node = match lookup(Some(root), dir) {
         Ok(node) => node, // 或者根据你的逻辑返回其他值
         Err(e) => return Err(e),
     };
     let dir = Some(&node);
-    create_file(dir, path)
+    match create_file(dir, path) {
+        Ok(_) => Ok(()),
+        Err(DevError::AlreadyExists) => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn create_dir(dir: Option<&VfsNodeRef>, path: &str) -> DevResult {
     match lookup(dir, path) {
         Ok(_) => yy_err!(AlreadyExists),
-        Err(DevError::NotFound) => parent_node_of(dir, path).create(path, VfsNodeType::Dir),
-        Err(e) => Err(e),
+        Err(DevError::NotFound) => {
+            // println!("create_dir error: NotFound");
+            parent_node_of(dir, path).create(path, VfsNodeType::Dir)
+        },
+        Err(e) => {
+            Err(e)
+        },
     }
 }
 
 pub fn create_dir_by_str(dir: &str, path: &str) -> DevResult {
+    println!("create_dir_by_str: dir: {}, path: {}", dir, path);
     let root = &(ROOT_DIR.as_ref().main_fs.root_dir());
     let node = match lookup(Some(root), dir) {
         Ok(node) => node, // 或者根据你的逻辑返回其他值
-        Err(e) => return Err(e),
+        Err(e) => {
+            println!("create_dir_by_str error: lookup error: {:?}", e);
+            return Err(e)
+        },
     };
     let dir = Some(&node);
     create_dir(dir, path)
@@ -439,19 +470,19 @@ pub fn get_file_size(path: &str) -> DevResult<u64> {
 }
 
 pub fn fs_test() {
-    assert!(matches!(create_dir_by_str("/", "yes"), Ok(())));
-    assert!(matches!(create_file_by_str("/yes", "no"), Ok(_)));
-    assert!(matches!(create_dir_by_str("/yes", "yes"), Ok(())));
-    assert!(matches!(rename("/yes/no", "/yes/no2"), Ok(())));
+    assert_matches!(create_dir_by_str("/", "yes"), Ok(()));
+    assert_matches!(create_file_by_str("/", "/yes/no"), Ok(_));
+    assert_matches!(create_dir_by_str("/", "/yes/yes"), Ok(()));
+    assert_matches!(rename("/yes/no", "/yes/no2"), Ok(()));
     println!("Current dir: {}", current_dir().unwrap());
-    assert!(matches!(set_current_dir("/yes/yes"), Ok(())));
+    assert_matches!(set_current_dir("/yes/yes"), Ok(()));
     println!("Current dir changed to: {}", current_dir().unwrap());
-    assert!(matches!(create_file_by_str("/", "no2"), Ok(_)));
-    assert!(matches!(remove_file_by_str("/", "no2"), Ok(())));
-    assert!(matches!(remove_dir_by_str("/yes", "yes"), Ok(())));
+    assert_matches!(create_file_by_str("/", "no2"), Ok(_));
+    assert_matches!(remove_file_by_str("/", "no2"), Ok(()));
+    assert_matches!(remove_dir_by_str("/", "/yes/yes"), Ok(()));
     let bytes = b"Hello World in FAT32!\n";
     let bytes_len = bytes.len();
-    assert!(matches!(write_file_by_str("/yes/no2", 0, bytes), Ok(_)));
+    assert_matches!(write_file_by_str("/yes/no2", 0, bytes), Ok(_));
     assert_eq!(read_file_by_str("/yes/no2", 0, bytes_len).unwrap(), bytes);
     // List dir
     println!("List dir: {:?}", list_dir_by_str("/", "/bin/").unwrap());

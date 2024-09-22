@@ -2,12 +2,13 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use super::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
+use crate::vfs::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
 use super::{VfsNodeAttr, VfsNodeOps, VfsNodeRef, VfsNodeType, VfsOps};
 use spin::Mutex;
 use fatfs::{Dir, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 
-use super::device::Disk;
+use device::Disk;
+use crate::vfs::device;
 use crate::{impl_vfs_dir_default, impl_vfs_non_dir_default};
 
 pub const BLOCK_SIZE: usize = 512;

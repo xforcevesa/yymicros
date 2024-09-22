@@ -6,7 +6,7 @@
 #![no_main]
 // #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
-
+#![feature(assert_matches)]
 #![feature(get_mut_unchecked)]
 
 #[macro_use]
