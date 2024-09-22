@@ -47,7 +47,7 @@ pub fn rust_main() -> ! {
     mem::remap_test();
     mem::frame_allocator_test();
     mem::heap_test();
-    // driver::block_device_test();
+    // driver::gpu_test();
     vfs::disk_device_test();
     vfs::test_path_canonicalize();
     vfs::init_rootfs_on_disk();

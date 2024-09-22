@@ -6,11 +6,11 @@ fn main() {
     insert_app_data().unwrap();
 }
 
-static TARGET_PATH: &str = "./user/elf/";
+static TARGET_PATH: &str = "../user/elf/";
 
 fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();
-    let mut apps: Vec<_> = read_dir("./user/elf")
+    let mut apps: Vec<_> = read_dir(TARGET_PATH)
         .unwrap()
         .into_iter()
         .map(|dir_entry| {
