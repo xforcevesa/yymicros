@@ -398,6 +398,46 @@ pub fn rename(old: &str, new: &str) -> DevResult {
     parent_node_of(None, old).rename(old, new)
 }
 
+pub fn list_dir(dir: Option<&VfsNodeRef>, path: &str) -> DevResult<Vec<String>> {
+    let node = lookup(dir, path)?;
+    let attr = node.get_attr()?;
+    if !attr.is_dir() {
+        yy_err!(NotADirectory)
+    } else if !attr.perm().owner_readable() {
+        yy_err!(PermissionDenied)
+    } else {
+        let mut entries = Vec::new();
+        for entry in node.read_dir()? {
+            let name = entry.name_as_str();
+            if name == "." || name == ".." {
+                continue;
+            }
+            entries.push(name.to_string());
+        }
+        Ok(entries)
+    }
+}
+
+pub fn list_dir_by_str(dir: &str, path: &str) -> DevResult<Vec<String>> {
+    let root = &(ROOT_DIR.as_ref().main_fs.root_dir());
+    let node = match lookup(Some(root), dir) {
+        Ok(node) => node, // 或者根据你的逻辑返回其他值
+        Err(e) => return Err(e),
+    };
+    let dir = Some(&node);
+    list_dir(dir, path)
+}
+
+pub fn get_file_size(path: &str) -> DevResult<u64> {
+    let node = open_file_by_str(path, path)?;
+    let attr = node.get_attr()?;
+    if !attr.is_file() {
+        yy_err!(NotAFile)
+    } else {
+        Ok(attr.size())
+    }
+}
+
 pub fn fs_test() {
     assert!(matches!(create_dir_by_str("/", "yes"), Ok(())));
     assert!(matches!(create_file_by_str("/yes", "no"), Ok(_)));
@@ -405,6 +445,7 @@ pub fn fs_test() {
     assert!(matches!(rename("/yes/no", "/yes/no2"), Ok(())));
     println!("Current dir: {}", current_dir().unwrap());
     assert!(matches!(set_current_dir("/yes/yes"), Ok(())));
+    println!("Current dir changed to: {}", current_dir().unwrap());
     assert!(matches!(create_file_by_str("/", "no2"), Ok(_)));
     assert!(matches!(remove_file_by_str("/", "no2"), Ok(())));
     assert!(matches!(remove_dir_by_str("/yes", "yes"), Ok(())));
@@ -412,6 +453,10 @@ pub fn fs_test() {
     let bytes_len = bytes.len();
     assert!(matches!(write_file_by_str("/yes/no2", 0, bytes), Ok(_)));
     assert_eq!(read_file_by_str("/yes/no2", 0, bytes_len).unwrap(), bytes);
+    // List dir
+    println!("List dir: {:?}", list_dir_by_str("/", "/bin/").unwrap());
+    // Get file size
+    assert_eq!(get_file_size("/yes/no2").unwrap(), bytes_len as u64);
     println!("fs test passed");
 }
 

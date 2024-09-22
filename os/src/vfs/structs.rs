@@ -307,4 +307,9 @@ impl VfsDirEntry {
             .unwrap_or(self.d_name.len());
         &self.d_name[..len]
     }
+
+    /// Converts the name of the entry to a string slice.
+    pub fn name_as_str(&self) -> &str {
+        core::str::from_utf8(&self.name_as_bytes()).unwrap()
+    }
 }

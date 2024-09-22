@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
 use super::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
@@ -203,25 +204,43 @@ impl VfsNodeOps for DirWrapper<'static> {
         self.0.remove(path).map_err(as_vfs_err)
     }
 
-    fn read_dir(&self, start_idx: usize, dirents: &mut [VfsDirEntry]) -> DevResult<usize> {
-        let mut iter = self.0.iter().skip(start_idx);
-        for (i, out_entry) in dirents.iter_mut().enumerate() {
-            let x = iter.next();
-            match x {
-                Some(Ok(entry)) => {
-                    let ty = if entry.is_dir() {
-                        VfsNodeType::Dir
-                    } else if entry.is_file() {
-                        VfsNodeType::File
-                    } else {
-                        unreachable!()
-                    };
-                    *out_entry = VfsDirEntry::new(&entry.file_name(), ty);
-                }
-                _ => return Ok(i),
-            }
+    // fn read_dir(&self, start_idx: usize, dirents: &mut [VfsDirEntry]) -> DevResult<usize> {
+    //     let mut iter = self.0.iter().skip(start_idx);
+    //     for (i, out_entry) in dirents.iter_mut().enumerate() {
+    //         let x = iter.next();
+    //         match x {
+    //             Some(Ok(entry)) => {
+    //                 let ty = if entry.is_dir() {
+    //                     VfsNodeType::Dir
+    //                 } else if entry.is_file() {
+    //                     VfsNodeType::File
+    //                 } else {
+    //                     unreachable!()
+    //                 };
+    //                 *out_entry = VfsDirEntry::new(&entry.file_name(), ty);
+    //             }
+    //             _ => return Ok(i),
+    //         }
+    //     }
+    //     Ok(dirents.len())
+    // }
+
+    fn read_dir(&self) -> DevResult<Vec<VfsDirEntry>> {
+        let mut entries = Vec::new();
+        for entry in self.0.iter() {
+            let Ok(entry) = entry else {
+                return Err(VfsError::IoError);
+            };
+            let ty = if entry.is_dir() {
+                VfsNodeType::Dir
+            } else if entry.is_file() {
+                VfsNodeType::File
+            } else {
+                unreachable!()
+            };
+            entries.push(VfsDirEntry::new(&entry.file_name(), ty));
         }
-        Ok(dirents.len())
+        Ok(entries)
     }
 
     fn rename(&self, src_path: &str, dst_path: &str) -> DevResult {

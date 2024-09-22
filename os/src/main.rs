@@ -52,13 +52,14 @@ pub fn rust_main() -> ! {
     vfs::test_path_canonicalize();
     vfs::init_rootfs_on_disk();
     vfs::fs_test();
-    task::add_initproc();
+    task::add_initproc_binary();
     println!("after initproc!");
     trap::init();
     trap::enable_timer_interrupt();
     time::set_next_trigger();
-    loader::list_apps();
-    task::add_user_app("hello_syscall");
+    // loader::list_apps();
+    loader::list_bins();
+    task::add_user_binary("hello_syscall");
     task::run_tasks();
     panic!("Unreachable in rust_main!");
 }

@@ -24,7 +24,7 @@ mod task;
 
 use crate::{config::MAX_SYSCALL_NUM, time::get_time_ms};
 
-use crate::loader::get_app_data_by_name;
+use crate::loader::{get_app_data_by_name, get_bin_data_by_name};
 use alloc::sync::Arc;
 use lazy_static::*;
 pub use manager::fetch_task;
@@ -133,9 +133,9 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
     // ++++++ access initproc TCB exclusively
     {
-        let mut initproc_inner = INITPROC.inner_exclusive_access();
+        let mut initproc_inner = INITPROC_APP.inner_exclusive_access();
         for child in inner.children.iter() {
-            child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC));
+            child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC_APP));
             initproc_inner.children.push(child.clone());
         }
     }
@@ -158,19 +158,40 @@ lazy_static! {
     ///
     /// the name "initproc" may be changed to any other app name like "usertests",
     /// but we have user_shell, so we don't need to change it.
-    pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new(TaskControlBlock::new(
+    pub static ref INITPROC_APP: Arc<TaskControlBlock> = Arc::new(TaskControlBlock::new(
         get_app_data_by_name("shell_syscall").unwrap()
     ));
 }
 
-/// Add init process to the manager
-pub fn add_initproc() {
-    add_task(INITPROC.clone());
+lazy_static! {
+    /// Creation of initial process from binary
+    pub static ref INITPROC_BINARY: Arc<TaskControlBlock> = Arc::new(
+        TaskControlBlock::new(get_bin_data_by_name("shell_syscall").unwrap())
+    );
 }
 
+#[allow(unused)]
+/// Add init process to the manager
+pub fn add_initproc_app() {
+    add_task(INITPROC_APP.clone());
+}
+
+/// Add init process from binary to the manager
+pub fn add_initproc_binary() {
+    add_task(INITPROC_BINARY.clone());
+}
+
+#[allow(unused)]
 /// Add user app to the manager
 pub fn add_user_app(app_name: &str) {
     let app_data = get_app_data_by_name(app_name).unwrap();
     let task = TaskControlBlock::new(app_data);
+    add_task(Arc::new(task));
+}
+
+/// Add user binary to the manager
+pub fn add_user_binary(bin_name: &str) {
+    let bin_data = get_bin_data_by_name(bin_name).unwrap();
+    let task = TaskControlBlock::new(bin_data);
     add_task(Arc::new(task));
 }

@@ -9,7 +9,7 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::cell::RefMut;
 use crate::config::MAX_SYSCALL_NUM;
-use crate::loader::get_app_data_by_name;
+use crate::loader::get_bin_data_by_name;
 
 /// Task control block structure
 ///
@@ -227,8 +227,9 @@ impl TaskControlBlock {
     /// Spawn
     pub fn spawn(self: &Arc<Self>, path: &str) -> Option<Arc<Self>> {
         let name = path;
+        // load elf from file system
         let ret = Arc::new(TaskControlBlock::new(
-            get_app_data_by_name(name).unwrap()
+            get_bin_data_by_name(name).unwrap()
         ));
         let mut parent_inner = self.inner_exclusive_access();
         parent_inner.children.push(ret.clone());

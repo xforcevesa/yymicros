@@ -15,12 +15,14 @@ pub fn init_rootfs_on_disk() {
     init_rootfs(&DISK_DEVICE);
 }
 
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 pub use device::{BlockDevice, disk_device_test};
 use err::{DevError, DevResult};
 pub use paths::test_path_canonicalize;
 
 pub use fs::fs_test;
+
+pub use fs::{list_dir_by_str, read_file_by_str, get_file_size};
 
 pub use self::structs::{FileSystemInfo, VfsDirEntry, VfsNodeAttr, VfsNodePerm, VfsNodeType};
 
@@ -141,7 +143,7 @@ pub trait VfsNodeOps: Send + Sync {
 
     #[allow(unused)]
     /// Read directory entries into `dirents`, starting from `start_idx`.
-    fn read_dir(&self, _start_idx: usize, _dirents: &mut [VfsDirEntry]) -> DevResult<usize> {
+    fn read_dir(&self) -> DevResult<Vec<VfsDirEntry>> {
         yy_err!(Unsupported)
     }
 

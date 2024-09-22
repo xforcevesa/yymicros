@@ -51,10 +51,8 @@ macro_rules! impl_vfs_non_dir_default {
         }
 
         fn read_dir(
-            &self,
-            _start_idx: usize,
-            _dirents: &mut [super::VfsDirEntry],
-        ) -> super::DevResult<usize> {
+            &self
+        ) -> Result<alloc::vec::Vec<VfsDirEntry>, crate::vfs::err::DevError> {
             $crate::yy_err!(NotADirectory)
         }
 
