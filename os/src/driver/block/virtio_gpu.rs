@@ -2,6 +2,7 @@ use virtio_drivers::{VirtIOGpu, VirtIOHeader};
 
 use super::{virtio_blk::VirtioHal, VIRTIO1};
 
+#[allow(unused)]
 /// GPU test function
 pub fn gpu_test() {
     let mut gpu = unsafe {

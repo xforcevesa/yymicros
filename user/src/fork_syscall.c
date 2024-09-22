@@ -28,7 +28,7 @@ static inline long write(int fd, const char *buf, int count) {
 }
 
 // Fork system call wrapper
-static inline long fork() {
+static inline long my_fork() {
     return syscall(SYS_fork, 0, 0, 0);
 }
 
@@ -50,7 +50,7 @@ static inline void exit(int status) {
 int main() {
     const char *msg_parent = "Hello from parent process!\n";
     const char *msg_child = "Hello from child process!\n";
-    long pid = fork();  // Call fork
+    long pid = my_fork();  // Call fork
 
     if (pid == 0) {
         // Child process
