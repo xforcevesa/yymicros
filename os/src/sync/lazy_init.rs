@@ -1,4 +1,3 @@
-//! Uniprocessor interior mutability primitives
 use core::cell::{RefCell, RefMut};
 use core::cell::UnsafeCell;
 use core::fmt;
@@ -82,7 +81,7 @@ impl<T> LazyInit<T> {
     /// Must be called after initialization.
     #[inline]
     pub unsafe fn get_unchecked(&self) -> &T {
-        &*(*self.data.get()).as_ptr()
+        unsafe { &*(*self.data.get()).as_ptr() }
     }
 
     /// Get a mutable reference to the value without checking if it is initialized.
@@ -92,7 +91,7 @@ impl<T> LazyInit<T> {
     /// Must be called after initialization.
     #[inline]
     pub unsafe fn get_mut_unchecked(&mut self) -> &mut T {
-        &mut *(*self.data.get()).as_mut_ptr()
+        unsafe { &mut *(*self.data.get()).as_mut_ptr() }
     }
 }
 

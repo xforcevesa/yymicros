@@ -1,6 +1,7 @@
 //!Implementation of [`TaskManager`]
 use super::TaskControlBlock;
 use crate::sync::UPSafeCell;
+use crate::task::TaskStatus;
 use alloc::collections::BinaryHeap;
 use alloc::sync::Arc;
 use lazy_static::*;
@@ -74,4 +75,13 @@ pub fn add_task(task: Arc<TaskControlBlock>) {
 pub fn fetch_task() -> Option<Arc<TaskControlBlock>> {
     //trace!("kernel: TaskManager::fetch_task");
     TASK_MANAGER.exclusive_access().fetch()
+}
+
+/// Wake up a task
+pub fn wakeup_task(task: Arc<TaskControlBlock>) {
+    trace!("kernel: TaskManager::wakeup_task");
+    let mut task_inner = task.inner_exclusive_access();
+    task_inner.task_status = TaskStatus::Ready;
+    drop(task_inner);
+    add_task(task);
 }

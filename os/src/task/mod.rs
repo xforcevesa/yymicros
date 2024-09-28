@@ -15,10 +15,12 @@
 //! might not be what you expect.
 mod context;
 mod id;
-
+mod stride;
 mod manager;
 mod processor;
 mod switch;
+#[allow(dead_code)]
+mod thread;
 #[allow(clippy::module_inception)]
 mod task;
 
@@ -33,7 +35,7 @@ pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-pub use manager::add_task;
+pub use manager::{add_task, wakeup_task};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task};
 /// Suspend the current 'Running' task and run the next task in task list.
@@ -151,6 +153,16 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     // we do not have to save task context
     let mut _unused = TaskContext::zero_init();
     schedule(&mut _unused as *mut _);
+}
+
+/// Make current task blocked and switch to the next task.
+pub fn block_current_and_run_next() {
+    let task = take_current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
+    task_inner.task_status = TaskStatus::Blocked;
+    drop(task_inner);
+    schedule(task_cx_ptr);
 }
 
 lazy_static! {

@@ -1,17 +1,20 @@
 //! Types related to task management & Functions for completely changing TCB
+use super::id::RecycleAllocator;
+use super::stride::Stride;
+use super::thread::ThreadControlBlock;
 use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
+use crate::config::MAX_SYSCALL_NUM;
 use crate::config::TRAP_CONTEXT_BASE;
+use crate::loader::get_bin_data_by_name;
 use crate::mem::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
-use crate::sync::UPSafeCell;
+use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
 use crate::vfs::inode::{File, Stdin, Stdout};
 use alloc::sync::{Arc, Weak};
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::cell::RefMut;
-use crate::config::MAX_SYSCALL_NUM;
-use crate::loader::get_bin_data_by_name;
 
 /// Task control block structure
 ///
@@ -28,7 +31,7 @@ pub struct TaskControlBlock {
     inner: UPSafeCell<TaskControlBlockInner>,
 
     /// Priority stride
-    pub stride: Stride
+    pub stride: Stride,
 }
 
 impl TaskControlBlock {
@@ -43,6 +46,7 @@ impl TaskControlBlock {
     }
 }
 
+#[allow(dead_code)]
 pub struct TaskControlBlockInner {
     /// The physical page number of the frame where the trap context is placed
     pub trap_cx_ppn: PhysPageNum,
@@ -83,9 +87,88 @@ pub struct TaskControlBlockInner {
     pub program_brk: usize,
 
     /// File descriptor table
-    pub fd_table: Vec<Option<Arc<dyn File>>>
+    pub fd_table: Vec<Option<Arc<dyn File>>>,
+
+    /// tasks(also known as threads)
+    pub tasks: Vec<Option<Arc<ThreadControlBlock>>>,
+
+    /// task resource allocator
+    pub thread_res_allocator: RecycleAllocator,
+
+    /// mutex list
+    pub mutex_list: Vec<Option<Arc<dyn Mutex>>>,
+    /// semaphore list
+    pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
+    /// condvar list
+    pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    /// deadlock detect
+    pub deadlock_detect: bool,
+    /// locker
+    pub locker: ProcessLocker,
 }
 
+#[allow(dead_code)]
+/// Locker of Process Control Block
+pub struct ProcessLocker {
+    /// the available number of threads
+    pub available: Vec<usize>,
+    /// the allocated number of threads
+    pub allocation: Vec<Vec<usize>>,
+    /// the need number of threads
+    pub need: Vec<Vec<usize>>,
+    /// the finish number of threads
+    pub finish: Vec<bool>,
+}
+
+#[allow(dead_code)]
+impl ProcessLocker {
+    pub fn new() -> Self {
+        Self {
+            available: Vec::new(),
+            allocation: Vec::new(),
+            need: Vec::new(),
+            finish: Vec::new(),
+        }
+    }
+
+    pub fn init(&mut self) {
+        self.available.resize(2, 0);
+        self.allocation.push(vec![0, 0]);
+        self.need.push(vec![0, 0]);
+        self.finish.push(true);
+    }
+
+    pub fn add(&mut self, id: usize) {
+        self.available[id] += 1;
+    }
+
+    pub fn remove(&mut self, id: usize, flag: usize) {
+        self.allocation[id][flag] -= 1;
+        self.need[id][flag] = 0;
+    }
+
+    pub fn alloc(&mut self, id: usize) {
+        self.allocation[id][0] += self.need[id][0];
+        self.allocation[id][1] += self.need[id][1];
+        self.need[id][0] = 0;
+        self.need[id][1] = 0;
+    }
+
+    pub fn detect(&mut self, id: usize, flag: usize) -> usize {
+        if self.available[flag] > self.need[id][flag] {
+            self.need[id][flag] += 1;
+            return 0;
+        } else {
+            return 0xDEAD;
+        }
+    }
+
+    pub fn finish(&mut self, id: usize) {
+        self.finish[id] = true;
+    }
+}
+
+#[allow(dead_code)]
 impl TaskControlBlockInner {
     /// get the trap context
     pub fn get_trap_cx(&self) -> &'static mut TrapContext {
@@ -110,6 +193,22 @@ impl TaskControlBlockInner {
             self.fd_table.push(None);
             self.fd_table.len() - 1
         }
+    }
+    /// allocate a new task id
+    pub fn alloc_tid(&mut self) -> usize {
+        self.thread_res_allocator.alloc()
+    }
+    /// deallocate a task id
+    pub fn dealloc_tid(&mut self, tid: usize) {
+        self.thread_res_allocator.dealloc(tid)
+    }
+    /// the count of tasks(threads) in this process
+    pub fn thread_count(&self) -> usize {
+        self.tasks.len()
+    }
+    /// get a task with tid in this process
+    pub fn get_task(&self, tid: usize) -> Arc<ThreadControlBlock> {
+        self.tasks[tid].as_ref().unwrap().clone()
     }
 }
 
@@ -154,9 +253,16 @@ impl TaskControlBlock {
                         // 2 -> stderr
                         Some(Arc::new(Stdout)),
                     ],
+                    thread_res_allocator: RecycleAllocator::new(),
+                    mutex_list: Vec::new(),
+                    semaphore_list: Vec::new(),
+                    condvar_list: Vec::new(),
+                    deadlock_detect: false,
+                    locker: ProcessLocker::new(),
+                    tasks: Vec::new(),
                 })
             },
-            stride: Stride::new()
+            stride: Stride::new(),
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.inner_exclusive_access().get_trap_cx();
@@ -239,9 +345,16 @@ impl TaskControlBlock {
                     heap_bottom: parent_inner.heap_bottom,
                     program_brk: parent_inner.program_brk,
                     fd_table: new_fd_table,
+                    thread_res_allocator: RecycleAllocator::new(),
+                    mutex_list: Vec::new(),
+                    semaphore_list: Vec::new(),
+                    condvar_list: Vec::new(),
+                    deadlock_detect: false,
+                    locker: ProcessLocker::new(),
+                    tasks: Vec::new(),
                 })
             },
-            stride: Stride::new()
+            stride: Stride::new(),
         });
         // add child
         parent_inner.children.push(task_control_block.clone());
@@ -259,9 +372,7 @@ impl TaskControlBlock {
     pub fn spawn(self: &Arc<Self>, path: &str) -> Option<Arc<Self>> {
         let name = path;
         // load elf from file system
-        let ret = Arc::new(TaskControlBlock::new(
-            get_bin_data_by_name(name).unwrap()
-        ));
+        let ret = Arc::new(TaskControlBlock::new(get_bin_data_by_name(name).unwrap()));
         let mut parent_inner = self.inner_exclusive_access();
         parent_inner.children.push(ret.clone());
         Some(ret)
@@ -300,9 +411,7 @@ impl TaskControlBlock {
 
     /// Set priority
     pub fn set_priority(self: &mut Arc<Self>, p: usize) -> usize {
-        unsafe {
-            Arc::get_mut_unchecked(self).stride.set_priority(p)
-        }
+        unsafe { Arc::get_mut_unchecked(self).stride.set_priority(p) }
         p
     }
 
@@ -311,50 +420,6 @@ impl TaskControlBlock {
         unsafe {
             Arc::get_mut_unchecked(self).stride.accumulate();
         }
-    }
-}
-
-pub struct Stride {
-    stride: usize,
-    priority: usize,
-    #[allow(unused)]
-    big_stride: usize
-}
-
-use core::cmp::{PartialEq, Ordering};
-
-impl PartialEq for Stride {
-    fn eq(&self, _: &Self) -> bool {
-        false
-    }
-}
-
-impl PartialOrd for Stride {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Await for check.
-        match PartialOrd::partial_cmp(&self.stride, &other.stride) {
-            Some(Ordering::Equal) => Some(Ordering::Equal),
-            Some(Ordering::Less) => Some(Ordering::Greater),
-            Some(Ordering::Greater) => Some(Ordering::Less),
-            None => None
-        }
-    }
-}
-
-impl Stride {
-    pub fn new() -> Self {
-        Self {
-            stride: 0,
-            priority: 16,
-            big_stride: 0x1000
-        }
-    }
-    pub fn set_priority(&mut self, p: usize) {
-        self.priority = p;
-    }
-    pub fn accumulate(&mut self) {
-        // Potential BUG here.
-        self.stride += self.big_stride / self.priority
     }
 }
 
@@ -370,4 +435,6 @@ pub enum TaskStatus {
     Running,
     /// exited
     Zombie,
+    /// blocked
+    Blocked,
 }
