@@ -220,7 +220,7 @@ impl VfsNodeOps for Ext4FileWrapper {
     /// Lookup the node with given `path` in the directory.
     ///
     /// Return the node if found.
-    fn lookup(self: Arc<Self>, path: &str) -> VfsResult<VfsNodeRef> {
+    fn lookup(&self, path: &str) -> VfsResult<VfsNodeRef> {
         let mut ext4_file = self.ext4_file.lock();
         let r = self.ext4.ext4_open(&mut ext4_file, path, "r+", false);
 
@@ -235,14 +235,16 @@ impl VfsNodeOps for Ext4FileWrapper {
         } else {
             drop(ext4_file);
             // log::error!("file found");
-            Ok(self.clone())
+            // Create a Arc that wraps the self as a immutable reference
+            let file = Ext4FileWrapper::new(self.ext4.clone());
+            Ok(Arc::new(file))
         }
     }
 
     /// Create a new node with the given `path` in the directory
     ///
     /// Return [`Ok(())`](Ok) if it already exists.
-    fn create(&self, path: &str, ty: VfsNodeType) -> VfsResult {
+    fn create(&self, path: &str, ty: VfsNodeType) -> VfsResult<VfsNodeRef> {
         let types = match ty {
             VfsNodeType::Fifo => DirEntryType::EXT4_DE_FIFO,
             VfsNodeType::CharDevice => DirEntryType::EXT4_DE_CHRDEV,
@@ -263,7 +265,8 @@ impl VfsNodeOps for Ext4FileWrapper {
 
         drop(ext4file);
 
-        Ok(())
+        let file = Ext4FileWrapper::new(self.ext4.clone());
+        Ok(Arc::new(file))
     }
 
     /// Remove the node with the given `path` in the directory.

@@ -30,12 +30,12 @@ struct MountPoint {
     fs: Arc<dyn VfsOps>,
 }
 
-struct RootDirectory {
-    main_fs: Arc<dyn VfsOps>,
+pub struct RootDirectory {
+    pub main_fs: Arc<dyn VfsOps>,
     mounts: Vec<MountPoint>,
 }
 
-static ROOT_DIR: LazyInit<Arc<RootDirectory>> = LazyInit::new();
+pub static ROOT_DIR: LazyInit<Arc<RootDirectory>> = LazyInit::new();
 
 impl MountPoint {
     pub fn new(path: &'static str, fs: Arc<dyn VfsOps>) -> Self {
@@ -128,17 +128,17 @@ impl VfsNodeOps for RootDirectory {
         self.main_fs.root_dir().get_attr()
     }
 
-    fn lookup(self: Arc<Self>, path: &str) -> DevResult<VfsNodeRef> {
+    fn lookup(&self, path: &str) -> DevResult<VfsNodeRef> {
         self.lookup_mounted_fs(path, |fs, rest_path| {
             let dir = fs.root_dir();
             dir.lookup(rest_path)
         })
     }
 
-    fn create(&self, path: &str, ty: VfsNodeType) -> DevResult {
+    fn create(&self, path: &str, ty: VfsNodeType) -> DevResult<VfsNodeRef> {
         self.lookup_mounted_fs(path, |fs, rest_path| {
             if rest_path.is_empty() {
-                Ok(()) // already exists
+                yy_err!(PermissionDenied) // cannot create mount points
             } else {
                 fs.root_dir().create(rest_path, ty)
             }
@@ -249,7 +249,10 @@ pub fn create_dir(dir: Option<&VfsNodeRef>, path: &str) -> DevResult {
         Ok(_) => yy_err!(AlreadyExists),
         Err(DevError::NotFound) => {
             // println!("create_dir error: NotFound");
-            parent_node_of(dir, path).create(path, VfsNodeType::Dir)
+            match parent_node_of(dir, path).create(path, VfsNodeType::Dir) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            }
         },
         Err(e) => {
             Err(e)

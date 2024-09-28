@@ -36,13 +36,13 @@ macro_rules! impl_vfs_dir_default {
 macro_rules! impl_vfs_non_dir_default {
     () => {
         fn lookup(
-            self: alloc::sync::Arc<Self>,
+            &self,
             _path: &str,
         ) -> $crate::vfs::err::DevResult<super::VfsNodeRef> {
             $crate::yy_err!(NotADirectory)
         }
 
-        fn create(&self, _path: &str, _ty: super::VfsNodeType) -> $crate::vfs::err::DevResult {
+        fn create(&self, _path: &str, _ty: super::VfsNodeType) -> $crate::vfs::err::DevResult<super::VfsNodeRef> {
             $crate::yy_err!(NotADirectory)
         }
 

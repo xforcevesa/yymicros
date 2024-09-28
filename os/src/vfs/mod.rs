@@ -3,6 +3,7 @@ mod fs;
 mod err;
 mod structs;
 mod paths;
+pub mod inode;
 
 #[macro_use]
 mod macros;
@@ -124,14 +125,14 @@ pub trait VfsNodeOps: Send + Sync {
     /// Lookup the node with given `path` in the directory.
     ///
     /// Return the node if found.
-    fn lookup(self: Arc<Self>, _path: &str) -> DevResult<VfsNodeRef> {
+    fn lookup(&self, _path: &str) -> DevResult<VfsNodeRef> {
         yy_err!(Unsupported)
     }
 
     /// Create a new node with the given `path` in the directory
     ///
     /// Return [`Ok(())`](Ok) if it already exists.
-    fn create(&self, _path: &str, _ty: VfsNodeType) -> DevResult {
+    fn create(&self, _path: &str, _ty: VfsNodeType) -> DevResult<VfsNodeRef> {
         yy_err!(Unsupported)
     }
 
@@ -159,5 +160,30 @@ pub trait VfsNodeOps: Send + Sync {
     /// [2]: core::any::Any#method.downcast_ref
     fn as_any(&self) -> &dyn core::any::Any {
         unimplemented!()
+    }
+
+    #[allow(unused)]
+    /// Clear the inode
+    fn clear(&self) -> DevResult {
+        yy_err!(Unsupported)
+    }
+
+    /// inode number
+    fn ino(&self) -> DevResult<u64> {
+        yy_err!(Unsupported)
+    }
+
+    fn is_dir(&self) -> DevResult<bool> {
+        yy_err!(Unsupported)
+    }
+
+    #[allow(unused)]
+    fn is_file(&self) -> DevResult<bool> {
+        yy_err!(Unsupported)
+    }
+
+    #[allow(unused)]
+    fn unlink(&self, _path: &str) -> DevResult {
+        yy_err!(Unsupported)
     }
 }

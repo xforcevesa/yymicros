@@ -5,8 +5,10 @@ use crate::config::TRAP_CONTEXT_BASE;
 use crate::mem::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
+use crate::vfs::inode::{File, Stdin, Stdout};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
+use alloc::vec;
 use core::cell::RefMut;
 use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::get_bin_data_by_name;
@@ -79,6 +81,9 @@ pub struct TaskControlBlockInner {
 
     /// Program break
     pub program_brk: usize,
+
+    /// File descriptor table
+    pub fd_table: Vec<Option<Arc<dyn File>>>
 }
 
 impl TaskControlBlockInner {
@@ -96,6 +101,15 @@ impl TaskControlBlockInner {
     }
     pub fn is_zombie(&self) -> bool {
         self.get_status() == TaskStatus::Zombie
+    }
+    #[allow(unused)]
+    pub fn alloc_fd(&mut self) -> usize {
+        if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()) {
+            fd
+        } else {
+            self.fd_table.push(None);
+            self.fd_table.len() - 1
+        }
     }
 }
 
@@ -131,7 +145,15 @@ impl TaskControlBlock {
                     children: Vec::new(),
                     exit_code: 0,
                     heap_bottom: user_sp,
-                    program_brk: user_sp
+                    program_brk: user_sp,
+                    fd_table: vec![
+                        // 0 -> stdin
+                        Some(Arc::new(Stdin)),
+                        // 1 -> stdout
+                        Some(Arc::new(Stdout)),
+                        // 2 -> stderr
+                        Some(Arc::new(Stdout)),
+                    ],
                 })
             },
             stride: Stride::new()
@@ -188,6 +210,14 @@ impl TaskControlBlock {
             .unwrap()
             .ppn();
         // alloc a pid and a kernel stack in kernel space
+        let mut new_fd_table: Vec<Option<Arc<dyn File>>> = Vec::new();
+        for fd in parent_inner.fd_table.iter() {
+            if let Some(file) = fd {
+                new_fd_table.push(Some(file.clone()));
+            } else {
+                new_fd_table.push(None);
+            }
+        }
         let pid_handle = pid_alloc();
         let kernel_stack = kstack_alloc();
         let kernel_stack_top = kernel_stack.get_top();
@@ -207,7 +237,8 @@ impl TaskControlBlock {
                     children: Vec::new(),
                     exit_code: 0,
                     heap_bottom: parent_inner.heap_bottom,
-                    program_brk: parent_inner.program_brk
+                    program_brk: parent_inner.program_brk,
+                    fd_table: new_fd_table,
                 })
             },
             stride: Stride::new()

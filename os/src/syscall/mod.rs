@@ -9,10 +9,21 @@
 //! For clarity, each single syscall is implemented as its own function, named
 //! `sys_` then the name of the syscall. You can find functions like this in
 //! submodules, and you should also implement syscalls this way.
+
+/// unlink_file syscall
+const SYSCALL_UNLINKAT: usize = 35;
+/// linkat syscall
+const SYSCALL_LINKAT: usize = 37;
+/// open syscall
+const SYSCALL_OPEN: usize = 56;
+/// close syscall
+const SYSCALL_CLOSE: usize = 57;
 /// read syscall
 const SYSCALL_READ: usize = 63;
 /// write syscall
 const SYSCALL_WRITE: usize = 64;
+/// fstat syscall
+const SYSCALL_FSTAT: usize = 80;
 /// exit syscall
 const SYSCALL_EXIT: usize = 93;
 /// yield syscall
@@ -40,21 +51,28 @@ const SYSCALL_SPAWN: usize = 400;
 /// taskinfo syscall
 const SYSCALL_TASK_INFO: usize = 410;
 
-pub use process::TaskInfo;
-
-use crate::task::trace_syscall;
-
-mod fs;
-mod process;
+pub mod fs;
+pub mod process;
 
 use fs::*;
 use process::*;
+
+use crate::vfs::inode::Stat;
+use crate::task::trace_syscall;
+
+pub use process::TaskInfo;
+
 /// handle syscall exception with `syscall_id` and other arguments
-pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
+pub fn syscall(syscall_id: usize, args: [usize; 4]) -> isize {
     trace_syscall(syscall_id);
     match syscall_id {
+        SYSCALL_OPEN => sys_open(args[1] as *const u8, args[2] as u32),
+        SYSCALL_CLOSE => sys_close(args[0]),
+        SYSCALL_LINKAT => sys_linkat(args[1] as *const u8, args[3] as *const u8),
+        SYSCALL_UNLINKAT => sys_unlinkat(args[1] as *const u8),
         SYSCALL_READ => sys_read(args[0], args[1] as *const u8, args[2]),
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
+        SYSCALL_FSTAT => sys_fstat(args[0], args[1] as *mut Stat),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GETPID => sys_getpid(),
