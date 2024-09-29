@@ -1,21 +1,19 @@
-//!Implementation of [`Processor`] and Intersection of control flow
+//! Implementation of [`Processor`] and Intersection of control flow
 //!
 //! Here, the continuous operation of user apps in CPU is maintained,
 //! the current running state of CPU is recorded,
 //! and the replacement and transfer of control flow of different applications are executed.
 
-use super::__switch;
+use super::__switch_task;
 use super::{fetch_task, TaskStatus};
-use super::{TaskContext, TaskControlBlock};
+use super::{ProcessControlBlock, TaskContext, TaskControlBlock};
 use crate::sync::UPSafeCell;
-use crate::time::get_time_ms;
 use crate::trap::TrapContext;
 use alloc::sync::Arc;
 use lazy_static::*;
 
 /// Processor management structure
 pub struct Processor {
-    ///The task currently executing on the current processor
     current: Option<Arc<TaskControlBlock>>,
 
     ///The basic control flow of each core, helping to select and switch process
@@ -23,7 +21,6 @@ pub struct Processor {
 }
 
 impl Processor {
-    ///Create an empty Processor
     pub fn new() -> Self {
         Self {
             current: None,
@@ -52,7 +49,7 @@ lazy_static! {
 }
 
 ///The main part of process execution and scheduling
-///Loop `fetch_task` to get the process that needs to run, and switch the process through `__switch`
+///Loop `fetch_task` to get the process that needs to run, and switch the process through `__switch_task`
 pub fn run_tasks() {
     loop {
         let mut processor = PROCESSOR.exclusive_access();
@@ -62,9 +59,6 @@ pub fn run_tasks() {
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
-            if task_inner.time == 0 {
-                task_inner.time = get_time_ms()
-            }
             // release coming task_inner manually
             drop(task_inner);
             // release coming task TCB manually
@@ -72,7 +66,7 @@ pub fn run_tasks() {
             // release processor manually
             drop(processor);
             unsafe {
-                __switch(idle_task_cx_ptr, next_task_cx_ptr);
+                __switch_task(idle_task_cx_ptr, next_task_cx_ptr);
             }
         } else {
             warn!("no tasks available in run_tasks");
@@ -90,13 +84,18 @@ pub fn current_task() -> Option<Arc<TaskControlBlock>> {
     PROCESSOR.exclusive_access().current()
 }
 
+/// get current process
+pub fn current_process() -> Arc<ProcessControlBlock> {
+    current_task().unwrap().process.upgrade().unwrap()
+}
+
 /// Get the current user token(addr of page table)
 pub fn current_user_token() -> usize {
     let task = current_task().unwrap();
     task.get_user_token()
 }
 
-///Get the mutable reference to trap context of current task
+/// Get the mutable reference to trap context of current task
 pub fn current_trap_cx() -> &'static mut TrapContext {
     current_task()
         .unwrap()
@@ -104,12 +103,28 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
         .get_trap_cx()
 }
 
-///Return to idle control flow for new scheduling
+/// get the user virtual address of trap context
+pub fn current_trap_cx_user_va() -> usize {
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .res
+        .as_ref()
+        .unwrap()
+        .trap_cx_user_va()
+}
+
+/// get the top addr of kernel stack
+pub fn current_kstack_top() -> usize {
+    current_task().unwrap().kstack.get_top()
+}
+
+/// Return to idle control flow for new scheduling
 pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     let mut processor = PROCESSOR.exclusive_access();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
     drop(processor);
     unsafe {
-        __switch(switched_task_cx_ptr, idle_task_cx_ptr);
+        __switch_task(switched_task_cx_ptr, idle_task_cx_ptr);
     }
 }

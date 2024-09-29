@@ -1,9 +1,9 @@
 //! Mutex (spin-like and blocking(sleep))
 
 use super::UPSafeCell;
-use crate::task::TaskControlBlock;
-use crate::task::{block_current_and_run_next, suspend_current_and_run_next};
-use crate::task::{current_task, wakeup_task};
+use crate::process::ProcessControlBlock;
+use crate::process::{block_current_and_run_next, suspend_current_and_run_next};
+use crate::process::{current_process, wakeup_process};
 use alloc::{collections::VecDeque, sync::Arc};
 
 /// Mutex trait
@@ -59,7 +59,7 @@ pub struct MutexBlocking {
 
 pub struct MutexBlockingInner {
     locked: bool,
-    wait_queue: VecDeque<Arc<TaskControlBlock>>,
+    wait_queue: VecDeque<Arc<ProcessControlBlock>>,
 }
 
 impl MutexBlocking {
@@ -83,7 +83,7 @@ impl Mutex for MutexBlocking {
         trace!("kernel: MutexBlocking::lock");
         let mut mutex_inner = self.inner.exclusive_access();
         if mutex_inner.locked {
-            mutex_inner.wait_queue.push_back(current_task().unwrap());
+            mutex_inner.wait_queue.push_back(current_process().unwrap());
             drop(mutex_inner);
             block_current_and_run_next();
         } else {
@@ -96,8 +96,8 @@ impl Mutex for MutexBlocking {
         trace!("kernel: MutexBlocking::unlock");
         let mut mutex_inner = self.inner.exclusive_access();
         assert!(mutex_inner.locked);
-        if let Some(waking_task) = mutex_inner.wait_queue.pop_front() {
-            wakeup_task(waking_task);
+        if let Some(waking_process) = mutex_inner.wait_queue.pop_front() {
+            wakeup_process(waking_process);
         } else {
             mutex_inner.locked = false;
         }

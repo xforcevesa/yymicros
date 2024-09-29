@@ -1,7 +1,7 @@
 //! Semaphore
 
 use crate::sync::UPSafeCell;
-use crate::task::{block_current_and_run_next, current_task, wakeup_task, TaskControlBlock};
+use crate::process::{block_current_and_run_next, current_process, wakeup_process, ProcessControlBlock};
 use alloc::{collections::VecDeque, sync::Arc};
 
 /// semaphore structure
@@ -12,7 +12,7 @@ pub struct Semaphore {
 
 pub struct SemaphoreInner {
     pub count: isize,
-    pub wait_queue: VecDeque<Arc<TaskControlBlock>>,
+    pub wait_queue: VecDeque<Arc<ProcessControlBlock>>,
 }
 
 impl Semaphore {
@@ -35,8 +35,8 @@ impl Semaphore {
         let mut inner = self.inner.exclusive_access();
         inner.count += 1;
         if inner.count <= 0 {
-            if let Some(task) = inner.wait_queue.pop_front() {
-                wakeup_task(task);
+            if let Some(process) = inner.wait_queue.pop_front() {
+                wakeup_process(process);
             }
         }
     }
@@ -47,7 +47,7 @@ impl Semaphore {
         let mut inner = self.inner.exclusive_access();
         inner.count -= 1;
         if inner.count < 0 {
-            inner.wait_queue.push_back(current_task().unwrap());
+            inner.wait_queue.push_back(current_process().unwrap());
             drop(inner);
             block_current_and_run_next();
         }

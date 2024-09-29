@@ -48,7 +48,7 @@ const SYSCALL_MMAP: usize = 222;
 const SYSCALL_WAITPID: usize = 260;
 /// spawn syscall
 const SYSCALL_SPAWN: usize = 400;
-/// taskinfo syscall
+/// processinfo syscall
 const SYSCALL_TASK_INFO: usize = 410;
 
 pub mod fs;
@@ -58,9 +58,9 @@ use fs::*;
 use process::*;
 
 use crate::vfs::inode::Stat;
-use crate::task::trace_syscall;
+use crate::process::trace_syscall;
 
-pub use process::TaskInfo;
+pub use process::ProcessInfo;
 
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 4]) -> isize {
@@ -80,7 +80,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 4]) -> isize {
         SYSCALL_EXEC => sys_exec(args[0] as *const u8),
         SYSCALL_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut TimeVal, args[1]),
-        SYSCALL_TASK_INFO => sys_task_info(args[0] as *mut TaskInfo),
+        SYSCALL_TASK_INFO => sys_process_info(args[0] as *mut ProcessInfo),
         SYSCALL_MMAP => sys_mmap(args[0], args[1], args[2]),
         SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
         SYSCALL_SBRK => sys_sbrk(args[0] as i32),

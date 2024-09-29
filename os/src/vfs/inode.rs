@@ -51,7 +51,7 @@ bitflags! {
 
 use crate::sbi::{console_getchar, console_putchar};
 use crate::sync::UPSafeCell;
-use crate::task::suspend_current_and_run_next;
+use crate::process::suspend_current_and_run_next;
 use crate::vfs::fs::ROOT_DIR;
 
 use super::VfsNodeRef;

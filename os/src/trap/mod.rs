@@ -9,14 +9,14 @@
 //! [`trap_handler()`].
 //!
 //! It then calls different functionality based on what exactly the exception
-//! was. For example, timer interrupts trigger task preemption, and syscalls go
+//! was. For example, timer interrupts trigger process preemption, and syscalls go
 //! to [`syscall()`].
 
 mod context;
 
 use crate::config::{TRAMPOLINE, TRAP_CONTEXT_BASE};
 use crate::syscall::syscall;
-use crate::task::{
+use crate::process::{
     current_trap_cx, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
 };
 use crate::time::set_next_trigger;
