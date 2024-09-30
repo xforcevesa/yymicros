@@ -4,6 +4,7 @@ mod err;
 mod structs;
 mod paths;
 pub mod inode;
+pub mod pipe;
 
 #[macro_use]
 mod macros;

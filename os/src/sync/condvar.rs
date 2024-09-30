@@ -1,7 +1,7 @@
 //! Conditian variable
 
 use crate::sync::{Mutex, UPSafeCell};
-use crate::process::{block_current_and_run_next, current_process, wakeup_process, ProcessControlBlock};
+use crate::process::{block_current_and_run_next, current_task, wakeup_task, TaskControlBlock};
 use alloc::{collections::VecDeque, sync::Arc};
 
 /// Condition variable structure
@@ -11,7 +11,7 @@ pub struct Condvar {
 }
 
 pub struct CondvarInner {
-    pub wait_queue: VecDeque<Arc<ProcessControlBlock>>,
+    pub wait_queue: VecDeque<Arc<TaskControlBlock>>,
 }
 
 impl Condvar {
@@ -27,20 +27,20 @@ impl Condvar {
         }
     }
 
-    /// Signal a process waiting on the condition variable
+    /// Signal a task waiting on the condition variable
     pub fn signal(&self) {
         let mut inner = self.inner.exclusive_access();
-        if let Some(process) = inner.wait_queue.pop_front() {
-            wakeup_process(process);
+        if let Some(task) = inner.wait_queue.pop_front() {
+            wakeup_task(task);
         }
     }
 
-    /// blocking current process, let it wait on the condition variable
+    /// blocking current task, let it wait on the condition variable
     pub fn wait(&self, mutex: Arc<dyn Mutex>) {
         trace!("kernel: Condvar::wait_with_mutex");
         mutex.unlock();
         let mut inner = self.inner.exclusive_access();
-        inner.wait_queue.push_back(current_process().unwrap());
+        inner.wait_queue.push_back(current_task().unwrap());
         drop(inner);
         block_current_and_run_next();
         mutex.lock();

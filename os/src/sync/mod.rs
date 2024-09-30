@@ -1,16 +1,13 @@
-//! Uniprocessor interior mutability primitives
+//! Synchronization and interior mutability primitives
+
+mod condvar;
+mod mutex;
+mod semaphore;
+mod up;
 mod lazy_init;
 
-#[allow(dead_code)]
-mod condvar;
-#[allow(dead_code)]
-mod mutex;
-#[allow(dead_code)]
-mod semaphore;
-
-pub use lazy_init::{LazyInit, UPSafeCell};
-#[allow(unused)]
 pub use condvar::Condvar;
-pub use mutex::Mutex;
-#[allow(unused)]
+pub use mutex::{Mutex, MutexBlocking, MutexSpin};
 pub use semaphore::Semaphore;
+pub use up::UPSafeCell;
+pub use lazy_init::LazyInit;

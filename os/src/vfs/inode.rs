@@ -163,9 +163,17 @@ impl OSInode {
     }
     /// read all data from the inode
     pub fn read_all(&self) -> Vec<u8> {
-        let _inner = self.inner.exclusive_access();
-        let _buffer = [0u8; 512];
-        let v: Vec<u8> = Vec::new();
+        let inner = self.inner.exclusive_access();
+        let mut buffer = [0u8; 512];
+        let mut offset = 0;
+        let mut v: Vec<u8> = Vec::new();
+        while let Ok(size) = inner.inode.read_at(offset, &mut buffer) {
+            offset += size as u64;
+            v.extend_from_slice(&buffer[..size]);
+            if size < buffer.len() {
+                break;
+            }
+        }
         v
     }
 

@@ -20,8 +20,8 @@ mod switch;
 mod task;
 
 use self::id::TaskUserRes;
-use crate::vfs::inode::{open_file, OpenFlags};
-use crate::task::manager::add_stopping_task;
+use crate::{time::get_time_ms, vfs::inode::{open_file, OpenFlags}};
+use manager::add_stopping_task;
 use crate::time::remove_timer;
 use alloc::{sync::Arc, vec::Vec};
 use lazy_static::*;
@@ -70,7 +70,44 @@ pub fn block_current_and_run_next() {
     schedule(task_cx_ptr);
 }
 
-use crate::board::QEMUExit;
+use crate::syscall::TaskInfo;
+
+/// Fetch process info
+pub fn fetch_task_info() -> TaskInfo {
+    // There must be an application running.
+    let process = current_task().unwrap();
+    // ---- access current TCB exclusively
+    let inner = process.inner_exclusive_access();
+    TaskInfo {
+        time: get_time_ms() - inner.time,
+        status: inner.task_status,
+        syscall_times: inner.syscall_times
+    }
+}
+
+/// mmap operation
+pub fn current_task_memset_mmap(start: usize, len: usize, port: usize) -> isize {
+    // There must be an application running.
+    let task = current_task().unwrap();
+    // ---- access current TCB exclusively
+    let task_inner = task.inner_exclusive_access();
+    let process = task_inner.res.as_ref().unwrap().process.upgrade().unwrap();
+    let mut process_inner = process.inner_exclusive_access();
+    let ms = &mut process_inner.memory_set;
+    ms.mmap(start, len, port)
+}
+
+/// munmap operation
+pub fn current_task_memset_munmap(start: usize, len: usize) -> isize {
+    // There must be an application running.
+    let task = current_task().unwrap();
+    // ---- access current TCB exclusively
+    let task_inner = task.inner_exclusive_access();
+    let process = task_inner.res.as_ref().unwrap().process.upgrade().unwrap();
+    let mut process_inner = process.inner_exclusive_access();
+    let ms = &mut process_inner.memory_set;
+    ms.munmap(start, len)
+}
 
 /// Exit the current 'Running' task and run the next task in task list.
 pub fn exit_current_and_run_next(exit_code: i32) {
@@ -106,11 +143,9 @@ pub fn exit_current_and_run_next(exit_code: i32) {
                 exit_code
             );
             if exit_code != 0 {
-                //crate::sbi::shutdown(255); //255 == -1 for err hint
-                crate::board::QEMU_EXIT_HANDLE.exit_failure();
+                crate::sbi::shutdown(true); //255 == -1 for err hint
             } else {
-                //crate::sbi::shutdown(0); //0 for success hint
-                crate::board::QEMU_EXIT_HANDLE.exit_success();
+                crate::sbi::shutdown(false); //0 for success hint
             }
         }
         remove_from_pid2process(pid);
@@ -175,8 +210,9 @@ lazy_static! {
     /// the name "initproc" may be changed to any other app name like "usertests",
     /// but we have user_shell, so we don't need to change it.
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let inode = open_file("ch8b_initproc", OpenFlags::RDONLY).unwrap();
+        let inode = open_file("/bin/shell_syscall.elf", OpenFlags::RDONLY).unwrap();
         let v = inode.read_all();
+        println!("Read size: {}", v.len());
         ProcessControlBlock::new(v.as_slice())
     };
 }

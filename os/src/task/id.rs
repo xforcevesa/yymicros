@@ -157,9 +157,11 @@ impl TaskUserRes {
             ustack_base,
             process: Arc::downgrade(&process),
         };
+        println!("task_user_res created");
         if alloc_user_res {
             task_user_res.alloc_user_res();
         }
+        println!("task_user_res allocated");
         task_user_res
     }
     /// Allocate user resource for a task
@@ -169,11 +171,13 @@ impl TaskUserRes {
         // alloc user stack
         let ustack_bottom = ustack_bottom_from_tid(self.ustack_base, self.tid);
         let ustack_top = ustack_bottom + USER_STACK_SIZE;
+        println!("alloc trap_cx");
         process_inner.memory_set.insert_framed_area(
             ustack_bottom.into(),
             ustack_top.into(),
             MapPermission::R | MapPermission::W | MapPermission::U,
         );
+        println!("trap_cx allocated");
         // alloc trap_cx
         let trap_cx_bottom = trap_cx_bottom_from_tid(self.tid);
         let trap_cx_top = trap_cx_bottom + PAGE_SIZE;

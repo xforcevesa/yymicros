@@ -1,4 +1,3 @@
-use core::cell::{RefCell, RefMut};
 use core::cell::UnsafeCell;
 use core::fmt;
 use core::mem::MaybeUninit;
@@ -126,34 +125,5 @@ impl<T> Drop for LazyInit<T> {
         if self.is_init() {
             unsafe { core::ptr::drop_in_place((*self.data.get()).as_mut_ptr()) };
         }
-    }
-}
-
-/// Wrap a static data structure inside it so that we are
-/// able to access it without any `unsafe`.
-///
-/// We should only use it in uniprocessor.
-///
-/// In order to get mutable reference of inner data, call
-/// `exclusive_access`.
-#[derive(Clone)]
-pub struct UPSafeCell<T> {
-    /// inner data
-    inner: RefCell<T>,
-}
-
-unsafe impl<T> Sync for UPSafeCell<T> {}
-
-impl<T> UPSafeCell<T> {
-    /// User is responsible to guarantee that inner struct is only used in
-    /// uniprocessor.
-    pub unsafe fn new(value: T) -> Self {
-        Self {
-            inner: RefCell::new(value),
-        }
-    }
-    /// Panic if the data has been borrowed.
-    pub fn exclusive_access(&self) -> RefMut<'_, T> {
-        self.inner.borrow_mut()
     }
 }

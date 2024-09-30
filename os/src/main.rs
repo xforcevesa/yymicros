@@ -17,7 +17,7 @@ mod panic;
 mod config;
 mod mem;
 mod sync;
-mod process;
+// mod process;
 mod trap;
 mod syscall;
 mod loader;
@@ -28,7 +28,8 @@ mod vfs;
 mod board;
 
 #[allow(dead_code)]
-mod task;
+#[path = "task/mod.rs"]
+mod process;
 
 #[macro_use]
 extern crate bitflags;
@@ -59,15 +60,14 @@ pub fn rust_main() -> ! {
     vfs::test_path_canonicalize();
     vfs::init_rootfs_on_disk();
     vfs::fs_test();
-    process::add_initproc_binary();
+    process::add_initproc();
     println!("after initproc!");
     trap::init();
     trap::enable_timer_interrupt();
     time::set_next_trigger();
     // loader::list_apps();
     loader::list_bins();
-    process::add_user_binary("hello_syscall");
-    process::run_processes();
+    process::run_tasks();
     panic!("Unreachable in rust_main!");
 }
 

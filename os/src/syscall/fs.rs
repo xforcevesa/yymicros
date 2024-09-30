@@ -1,13 +1,15 @@
-//! File and filesystem-related syscalls
-use crate::vfs::{inode::{link_file, open_file, unlink_file}, inode::{OpenFlags, Stat}};
+use crate::vfs::{inode::{link_file, open_file, unlink_file, OpenFlags, Stat}, pipe::make_pipe};
 use crate::mem::{translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
-use crate::process::{current_process, current_user_token};
-
-/// Performs a syscall that writes a file.
+use crate::process::{current_process, current_task, current_user_token};
+use alloc::sync::Arc;
+/// write syscall
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
-    trace!("kernel:pid[{}] sys_write", current_process().unwrap().pid.0);
+    trace!(
+        "kernel:pid[{}] sys_write",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
     let token = current_user_token();
-    let process = current_process().unwrap();
+    let process = current_process();
     let inner = process.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
         return -1;
@@ -17,19 +19,21 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
             return -1;
         }
         let file = file.clone();
-        // release current process TCB manually to avoid multi-borrow
+        // release current task TCB manually to avoid multi-borrow
         drop(inner);
         file.write(UserBuffer::new(translated_byte_buffer(token, buf, len))) as isize
     } else {
         -1
     }
 }
-
-/// Performs a syscall that reads a file.
+/// read syscall
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
-    trace!("kernel:pid[{}] sys_read", current_process().unwrap().pid.0);
+    trace!(
+        "kernel:pid[{}] sys_read",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
     let token = current_user_token();
-    let process = current_process().unwrap();
+    let process = current_process();
     let inner = process.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
         return -1;
@@ -39,7 +43,7 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
         if !file.readable() {
             return -1;
         }
-        // release current process TCB manually to avoid multi-borrow
+        // release current task TCB manually to avoid multi-borrow
         drop(inner);
         trace!("kernel: sys_read .. file.read");
         file.read(UserBuffer::new(translated_byte_buffer(token, buf, len))) as isize
@@ -47,19 +51,16 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
         -1
     }
 }
-
-/// Performs a syscall that opens a file.
+/// open sys
 pub fn sys_open(path: *const u8, flags: u32) -> isize {
-    trace!("kernel:pid[{}] sys_open", current_process().unwrap().pid.0);
-    let process = current_process().unwrap();
+    trace!(
+        "kernel:pid[{}] sys_open",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let process = current_process();
     let token = current_user_token();
     let path = translated_str(token, path);
-    let flags = OpenFlags::from_bits(flags).unwrap();
-    if let Some(inode) = open_file(path.as_str(), flags) {
-        if !flags.contains(OpenFlags::CREATE) && inode.is_deleted(path.as_str()) {
-            return -1;
-        }
-
+    if let Some(inode) = open_file(path.as_str(), OpenFlags::from_bits(flags).unwrap()) {
         let mut inner = process.inner_exclusive_access();
         let fd = inner.alloc_fd();
         inner.fd_table[fd] = Some(inode);
@@ -68,11 +69,13 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
         -1
     }
 }
-
-/// Performs a syscall that closes a file descriptor.
+/// close syscall
 pub fn sys_close(fd: usize) -> isize {
-    trace!("kernel:pid[{}] sys_close", current_process().unwrap().pid.0);
-    let process = current_process().unwrap();
+    trace!(
+        "kernel:pid[{}] sys_close",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let process = current_process();
     let mut inner = process.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
         return -1;
@@ -83,15 +86,50 @@ pub fn sys_close(fd: usize) -> isize {
     inner.fd_table[fd].take();
     0
 }
+/// pipe syscall
+pub fn sys_pipe(pipe: *mut usize) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_pipe",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let process = current_process();
+    let token = current_user_token();
+    let mut inner = process.inner_exclusive_access();
+    let (pipe_read, pipe_write) = make_pipe();
+    let read_fd = inner.alloc_fd();
+    inner.fd_table[read_fd] = Some(pipe_read);
+    let write_fd = inner.alloc_fd();
+    inner.fd_table[write_fd] = Some(pipe_write);
+    *translated_refmut(token, pipe) = read_fd;
+    *translated_refmut(token, unsafe { pipe.add(1) }) = write_fd;
+    0
+}
+/// dup syscall
+pub fn sys_dup(fd: usize) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_dup",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let process = current_process();
+    let mut inner = process.inner_exclusive_access();
+    if fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if inner.fd_table[fd].is_none() {
+        return -1;
+    }
+    let new_fd = inner.alloc_fd();
+    inner.fd_table[new_fd] = Some(Arc::clone(inner.fd_table[fd].as_ref().unwrap()));
+    new_fd as isize
+}
 
 /// YOUR JOB: Implement fstat.
 pub fn sys_fstat(fd: usize, st: *mut Stat) -> isize {
     trace!(
-        "kernel:pid[{}] sys_fstat",
-        current_process().unwrap().pid.0
+        "kernel:pid[{}] sys_fstat NOT IMPLEMENTED",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-
-    let process = current_process().unwrap();
+    let process = current_process();
     let inner = process.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
         return -1;
@@ -113,13 +151,12 @@ pub fn sys_fstat(fd: usize, st: *mut Stat) -> isize {
     }
 }
 
-/// YOUR JOB: Implement link_file.
+/// YOUR JOB: Implement linkat.
 pub fn sys_linkat(old_name: *const u8, new_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_linkat",
-        current_process().unwrap().pid.0
+        "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-
     let token = current_user_token();
 
     let old_name = translated_str(token, old_name);
@@ -131,13 +168,12 @@ pub fn sys_linkat(old_name: *const u8, new_name: *const u8) -> isize {
     )
 }
 
-/// YOUR JOB: Implement unlink_file.
+/// YOUR JOB: Implement unlinkat.
 pub fn sys_unlinkat(name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_unlinkat",
-        current_process().unwrap().pid.0
+        "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-
     let token = current_user_token();
 
     let name = translated_str(token, name);

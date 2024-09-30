@@ -128,7 +128,7 @@ impl PageTable {
     /// set the map between virtual page number and physical page number
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         let pte = self.find_pte_create(vpn).unwrap();
-        assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+        assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping at ppn {:?}", vpn, ppn);
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     }
     /// remove the map between virtual page number and physical page number
@@ -210,6 +210,15 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .translate_va(VirtAddr::from(va))
         .unwrap()
         .get_mut()
+}
+
+/// translate a pointer `ptr` in other address space to a immutable u8 slice in kernel address space. NOTICE: the content pointed to by the pointer `ptr` cannot cross physical pages, otherwise translated_byte_buffer should be used.
+pub fn translated_ref<T>(token: usize, ptr: *const T) -> &'static T {
+    let page_table = PageTable::from_token(token);
+    page_table
+        .translate_va(VirtAddr::from(ptr as usize))
+        .unwrap()
+        .get_ref()
 }
 
 /// An abstraction over a buffer passed from user space to kernel space

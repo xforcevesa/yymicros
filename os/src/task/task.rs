@@ -2,6 +2,7 @@
 
 use super::id::TaskUserRes;
 use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
+use crate::config::MAX_SYSCALL_NUM;
 use crate::trap::TrapContext;
 use crate::{mem::PhysPageNum, sync::UPSafeCell};
 use alloc::sync::{Arc, Weak};
@@ -41,6 +42,10 @@ pub struct TaskControlBlockInner {
     pub task_status: TaskStatus,
     /// It is set when active exit or execution error occurs
     pub exit_code: Option<i32>,
+    /// Total running time of process
+    pub time: usize,
+    /// The numbers of syscall called by process
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
 }
 
 impl TaskControlBlockInner {
@@ -61,7 +66,9 @@ impl TaskControlBlock {
         ustack_base: usize,
         alloc_user_res: bool,
     ) -> Self {
+        println!("TaskControlBlock::new");
         let res = TaskUserRes::new(Arc::clone(&process), ustack_base, alloc_user_res);
+        println!("TaskControlBlock::new1");
         let trap_cx_ppn = res.trap_cx_ppn();
         let kstack = kstack_alloc();
         let kstack_top = kstack.get_top();
@@ -75,6 +82,8 @@ impl TaskControlBlock {
                     task_cx: TaskContext::goto_trap_return(kstack_top),
                     task_status: TaskStatus::Ready,
                     exit_code: None,
+                    time: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM]
                 })
             },
         }

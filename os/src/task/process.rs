@@ -6,7 +6,7 @@ use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::vfs::inode::{File, Stdin, Stdout};
-use crate::mem::{translated_refmut, MemorySet, KERNEL_SPACE};
+use crate::mem::{translated_refmut, MemorySet, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
@@ -53,6 +53,10 @@ pub struct ProcessControlBlockInner {
     pub deadlock_detect: bool,
     /// mutex and semaphore locker
     pub locker: ProcessLocker,
+    /// Heap bottom
+    pub heap_bottom: usize,
+    /// Program break
+    pub program_brk: usize
 }
 
 /// Locker of Process Control Block
@@ -107,7 +111,6 @@ impl ProcessControlBlock {
     }
     /// new process from elf file
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
-        trace!("kernel: ProcessControlBlock::new");
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         // allocate a pid
@@ -137,9 +140,12 @@ impl ProcessControlBlock {
                     condvar_list: Vec::new(),
                     deadlock_detect: false,
                     locker: ProcessLocker::new(),
+                    heap_bottom: ustack_base,
+                    program_brk: ustack_base
                 })
             },
         });
+        println!("kernel: ProcessControlBlock::new ustack_base: {:#x}", ustack_base);
         // create a main thread, we should allocate ustack and trap_cx here
         let task = Arc::new(TaskControlBlock::new(
             Arc::clone(&process),
@@ -266,6 +272,8 @@ impl ProcessControlBlock {
                     condvar_list: Vec::new(),
                     deadlock_detect: false,
                     locker: ProcessLocker::new(),
+                    heap_bottom: parent.heap_bottom,
+                    program_brk: parent.program_brk
                 })
             },
         });
@@ -303,6 +311,31 @@ impl ProcessControlBlock {
     /// get pid
     pub fn getpid(&self) -> usize {
         self.pid.0
+    }
+    /// change the location of the program break. return None if failed.
+    pub fn change_program_brk(&self, size: i32) -> Option<usize> {
+        let mut inner = self.inner_exclusive_access();
+        let heap_bottom = inner.heap_bottom;
+        let old_break = inner.program_brk;
+        let new_brk = inner.program_brk as isize + size as isize;
+        if new_brk < heap_bottom as isize {
+            return None;
+        }
+        let result = if size < 0 {
+            inner
+                .memory_set
+                .shrink_to(VirtAddr(heap_bottom), VirtAddr(new_brk as usize))
+        } else {
+            inner
+                .memory_set
+                .append_to(VirtAddr(heap_bottom), VirtAddr(new_brk as usize))
+        };
+        if result {
+            inner.program_brk = new_brk as usize;
+            Some(old_break)
+        } else {
+            None
+        }
     }
 }
 

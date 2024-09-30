@@ -48,5 +48,8 @@ run: run-fatfs
 run1: run-ext4
 
 clean:
-	cargo clean
+	cd os && cargo clean && cd ..
 	rm -rf target
+
+total_lines:
+	bash total_lines.sh
