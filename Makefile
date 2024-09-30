@@ -49,7 +49,7 @@ run1: run-ext4
 
 clean:
 	cd os && cargo clean && cd ..
-	rm -rf target
+	rm -rf target user/elf/* disk.img
 
 total_lines:
 	bash total_lines.sh

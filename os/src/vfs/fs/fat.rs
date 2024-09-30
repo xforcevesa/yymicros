@@ -7,8 +7,7 @@ use super::{VfsNodeAttr, VfsNodeOps, VfsNodeRef, VfsNodeType, VfsOps};
 use spin::Mutex;
 use fatfs::{Dir, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 
-use device::Disk;
-use crate::vfs::device;
+use crate::vfs::Disk;
 use crate::{impl_vfs_dir_default, impl_vfs_non_dir_default};
 
 pub const BLOCK_SIZE: usize = 512;

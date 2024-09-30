@@ -1,8 +1,7 @@
-use crate::vfs::device::Disk;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::*;
-use crate::vfs::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
+use crate::vfs::{Disk, DevResult, VfsDirEntry, VfsError, VfsNodePerm};
 use super::{VfsNodeAttr, VfsNodeOps, VfsNodeRef, VfsNodeType, VfsOps};
 use spin::Mutex;
 use core::cell::RefCell;

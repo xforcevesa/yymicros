@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 
 ///A array of `ProcessControlBlock` that is thread-safe
 pub struct ProcessManager {
-    // ready_queue: VecDeque<Arc<ProcessControlBlock>>,
+    // ready_heap: VecDeque<Arc<ProcessControlBlock>>,
     heap: BinaryHeap<Arc<ProcessControlBlock>>
 }
 
@@ -43,7 +43,7 @@ impl ProcessManager {
     ///Creat an empty ProcessManager
     pub fn new() -> Self {
         Self {
-            // ready_queue: VecDeque::new(),
+            // ready_heap: VecDeque::new(),
             heap: BinaryHeap::new()
         }
     }

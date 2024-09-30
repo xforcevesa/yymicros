@@ -1,23 +1,26 @@
-mod device;
 mod fs;
 mod err;
-mod structs;
 mod paths;
-pub mod inode;
-pub mod pipe;
+
+mod os;
 
 #[macro_use]
 mod macros;
 
-use device::DISK_DEVICE;
+use os::DISK_DEVICE;
+use os::Disk;
 use fs::init_rootfs;
+pub use os::{open_file, OpenFlags};
+pub use os::{
+    link_file, Stat, make_pipe, Stdin, Stdout, File, unlink_file
+};
 
 pub fn init_rootfs_on_disk() {
     init_rootfs(&DISK_DEVICE);
 }
 
 use alloc::{sync::Arc, vec::Vec};
-pub use device::{BlockDevice, disk_device_test};
+pub use os::{BlockDevice, disk_device_test};
 use err::{DevError, DevResult};
 pub use paths::test_path_canonicalize;
 
@@ -25,7 +28,7 @@ pub use fs::fs_test;
 
 pub use fs::{list_dir_by_str, read_file_by_str, get_file_size};
 
-pub use self::structs::{FileSystemInfo, VfsDirEntry, VfsNodeAttr, VfsNodePerm, VfsNodeType};
+pub use os::{FileSystemInfo, VfsDirEntry, VfsNodeAttr, VfsNodePerm, VfsNodeType};
 
 /// A wrapper of [`Arc<dyn VfsNodeOps>`].
 pub type VfsNodeRef = Arc<dyn VfsNodeOps>;

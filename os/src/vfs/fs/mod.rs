@@ -166,7 +166,7 @@ impl VfsNodeOps for RootDirectory {
     }
 }
 
-pub fn init_rootfs(disk: &crate::vfs::device::Disk) {
+pub fn init_rootfs(disk: &crate::vfs::Disk) {
     #[cfg(not(feature = "ext4"))]
     let use_fatfs = true; // TODO: detect file system type from disk
     #[cfg(feature = "ext4")]

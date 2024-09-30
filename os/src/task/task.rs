@@ -1,6 +1,7 @@
 //! Types related to task management & Functions for completely changing TCB
 
 use super::id::TaskUserRes;
+use super::stride::Stride;
 use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
 use crate::config::MAX_SYSCALL_NUM;
 use crate::trap::TrapContext;
@@ -16,6 +17,8 @@ pub struct TaskControlBlock {
     pub kstack: KernelStack,
     /// mutable
     inner: UPSafeCell<TaskControlBlockInner>,
+    /// Priority stride
+    pub stride: Stride,
 }
 
 impl TaskControlBlock {
@@ -28,6 +31,18 @@ impl TaskControlBlock {
         let process = self.process.upgrade().unwrap();
         let inner = process.inner_exclusive_access();
         inner.memory_set.token()
+    }
+    /// Set priority
+    pub fn set_priority(self: &mut Arc<Self>, p: usize) -> usize {
+        unsafe { Arc::get_mut_unchecked(self).stride.set_priority(p) }
+        p
+    }
+
+    /// Accumulate stride
+    pub fn accumulate_stride(self: &mut Arc<Self>) {
+        unsafe {
+            Arc::get_mut_unchecked(self).stride.accumulate();
+        }
     }
 }
 
@@ -66,9 +81,9 @@ impl TaskControlBlock {
         ustack_base: usize,
         alloc_user_res: bool,
     ) -> Self {
-        println!("TaskControlBlock::new");
+        // println!("TaskControlBlock::new");
         let res = TaskUserRes::new(Arc::clone(&process), ustack_base, alloc_user_res);
-        println!("TaskControlBlock::new1");
+        // println!("TaskControlBlock::new1");
         let trap_cx_ppn = res.trap_cx_ppn();
         let kstack = kstack_alloc();
         let kstack_top = kstack.get_top();
@@ -86,6 +101,7 @@ impl TaskControlBlock {
                     syscall_times: [0; MAX_SYSCALL_NUM]
                 })
             },
+            stride: Stride::new()
         }
     }
 }
