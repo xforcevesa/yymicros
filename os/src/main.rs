@@ -17,11 +17,11 @@ mod panic;
 mod config;
 mod mem;
 mod sync;
-// mod process;
 mod trap;
 mod syscall;
 mod loader;
 mod vfs;
+mod embassy;
 
 #[allow(dead_code)]
 #[path = "boards/qemu.rs"]
@@ -50,12 +50,12 @@ global_asm!(include_str!("link_app.S"));
 /// kernel enter point
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("Hello World!");
+    embassy::futures_test();
     mem::init();
     mem::remap_test();
     mem::frame_allocator_test();
     mem::heap_test();
-    // driver::gpu_test();
+    // embassy::green_thread_test();
     vfs::disk_device_test();
     vfs::test_path_canonicalize();
     vfs::init_rootfs_on_disk();

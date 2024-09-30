@@ -2,14 +2,18 @@
 use crate::trap::trap_return;
 
 #[repr(C)]
+#[derive(Debug)]
 /// task context structure containing some registers
 pub struct TaskContext {
     /// Ret position after task switching
     ra: usize,
     /// Stack pointer
-    sp: usize,
+    pub sp: usize,
     /// s0-11 register, callee saved
     s: [usize; 12],
+    #[allow(unused)]
+    /// ptr for green thread
+    pub thread_ptr: usize
 }
 
 impl TaskContext {
@@ -19,6 +23,7 @@ impl TaskContext {
             ra: 0,
             sp: 0,
             s: [0; 12],
+            thread_ptr: 0
         }
     }
     /// Create a new task context with a trap return addr and a kernel stack pointer
@@ -27,6 +32,7 @@ impl TaskContext {
             ra: trap_return as usize,
             sp: kstack_ptr,
             s: [0; 12],
+            thread_ptr: 0
         }
     }
 }

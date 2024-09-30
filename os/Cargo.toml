@@ -20,7 +20,6 @@ virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4e
 spin = "0.7.1"
 volatile = "0.2.7"
 ext4_rs = { git = "https://github.com/yuoo655/ext4_rs.git", rev= "6bcc7f5" }
-# lazy-init = "0.2.0"
 
 [dependencies.fatfs]
 git = "https://github.com/rafalh/rust-fatfs"
