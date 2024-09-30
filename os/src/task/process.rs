@@ -5,7 +5,8 @@ use super::manager::insert_into_pid2process;
 use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
-use crate::vfs::inode::{File, Stdin, Stdout};
+use crate::loader::get_bin_data_by_name;
+use crate::vfs::{File, Stdin, Stdout};
 use crate::mem::{translated_refmut, MemorySet, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
@@ -233,6 +234,16 @@ impl ProcessControlBlock {
         trap_cx.x[10] = args.len();
         trap_cx.x[11] = argv_base;
         *task_inner.get_trap_cx() = trap_cx;
+    }
+
+    /// Spawn
+    pub fn spawn(self: &Arc<Self>, path: &str) -> Option<Arc<Self>> {
+        let name = path;
+        // load elf from file system
+        let ret =ProcessControlBlock::new(get_bin_data_by_name(name).unwrap());
+        let mut parent_inner = self.inner_exclusive_access();
+        parent_inner.children.push(ret.clone());
+        Some(ret)
     }
 
     /// Only support processes with a single thread.

@@ -1,4 +1,4 @@
-use crate::vfs::{inode::{link_file, open_file, unlink_file, OpenFlags, Stat}, pipe::make_pipe};
+use crate::vfs::{link_file, open_file, unlink_file, OpenFlags, Stat, make_pipe};
 use crate::mem::{translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
 use crate::process::{current_process, current_task, current_user_token};
 use alloc::sync::Arc;

@@ -4,6 +4,7 @@
 #define SYSCALL_FORK    220
 #define SYSCALL_EXECVE  221
 #define SYSCALL_WAITPID 260
+#define SYSCALL_YIELD   124
 
 #define BUF_SIZE 128
 
@@ -103,10 +104,22 @@ static inline void syscall_exit(int exit_code) {
     );
 }
 
+// Inline assembly for `yield` syscall
+static inline void syscall_yield() {
+    asm volatile (
+        "mv a7, %[syscall_num]\n"
+        "ecall\n"
+        :
+        : [syscall_num] "r" (SYSCALL_YIELD)
+        : "a7"
+    );
+}
+
 // Function to print the prompt and read user input
 void read_command(char *buffer, long buf_size) {
-    syscall_write(1, "$ ", 2);  // Display prompt
+    syscall_write(1, "\r\n$ ", 4);  // Display prompt
     syscall_read(0, buffer, buf_size);  // Read input from stdin
+    syscall_yield();  // Yield the CPU to allow other processes to run
 }
 
 // Function to strip newline character from the command
@@ -140,13 +153,19 @@ int _start() {
         // Fork the process
         long pid = syscall_fork();
         if (pid == 0) {
+            char* p;
+            for (p = buffer; *p && (*p == ' ' || *p == '\t'); p++);
+            int empty = (*p == '\0');  // Check if the command is empty
             // In child process, execute the command
-            syscall_execve(buffer, argv, envp);
-
-            failed:
-            // If execve fails, print an error message and exit
-            syscall_write(1, "Command not found\r\n", 18);
-            syscall_exit(1);
+            if (!empty && syscall_execve(buffer, argv, envp) < 0) {
+                // If execve fails, print an error message and exit
+                syscall_write(1, "Command not found\r\n", 18);
+                syscall_exit(1);
+            } else {
+                syscall_write(1, "\r\n", 2);  // Print a newline after the command is executed
+                *buffer = '\0';  // Reset the buffer for the next command
+            }
+            
         } else {
             // In parent process, wait for the child to complete
             syscall_waitpid(pid, NULL, 0);

@@ -18,9 +18,10 @@ mod signal;
 mod switch;
 #[allow(clippy::module_inception)]
 mod task;
+mod stride;
 
 use self::id::TaskUserRes;
-use crate::{time::get_time_ms, vfs::inode::{open_file, OpenFlags}};
+use crate::{time::get_time_ms, vfs::{open_file, OpenFlags}};
 use manager::add_stopping_task;
 use crate::time::remove_timer;
 use alloc::{sync::Arc, vec::Vec};
@@ -107,6 +108,21 @@ pub fn current_task_memset_munmap(start: usize, len: usize) -> isize {
     let mut process_inner = process.inner_exclusive_access();
     let ms = &mut process_inner.memory_set;
     ms.munmap(start, len)
+}
+
+/// spawn operation
+pub fn current_task_spawn(path: &str) -> isize {
+    // There must be an application running.
+    let task = current_task().unwrap();
+    // ---- access current TCB exclusively
+    let task_inner = task.inner_exclusive_access();
+    let process = task_inner.res.as_ref().unwrap().process.upgrade().unwrap();
+    let process = match process.spawn(path) {
+        Some(process) => process,
+        None => return -1,
+    };
+    let new_pid = process.getpid();
+    new_pid as isize
 }
 
 /// Exit the current 'Running' task and run the next task in task list.

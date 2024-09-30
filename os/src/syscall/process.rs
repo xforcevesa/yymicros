@@ -2,12 +2,10 @@ use crate::{
     config::MAX_SYSCALL_NUM,
     mem::{translated_ref, translated_refmut, translated_str},
     process::{
-        current_process, current_task, current_task_memset_mmap, current_task_memset_munmap,
-        current_user_token, exit_current_and_run_next, fetch_task_info, pid2process,
-        suspend_current_and_run_next, SignalFlags, TaskStatus,
+        current_process, current_task, current_task_memset_mmap, current_task_memset_munmap, current_task_spawn, current_user_token, exit_current_and_run_next, fetch_task_info, pid2process, suspend_current_and_run_next, SignalFlags, TaskStatus
     },
     time::get_time_us,
-    vfs::inode::{open_file, OpenFlags},
+    vfs::{open_file, OpenFlags},
 };
 use alloc::{string::String, sync::Arc, vec::Vec};
 
@@ -92,6 +90,9 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
     }
     if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
         let all_data = app_inode.read_all();
+        if all_data.len() == 0 {
+            return -1;
+        }
         let process = current_process();
         let argc = args_vec.len();
         process.exec(all_data.as_slice(), args_vec);
@@ -227,21 +228,27 @@ pub fn sys_sbrk(size: i32) -> isize {
 /// spawn syscall
 /// YOUR JOB: Implement spawn.
 /// HINT: fork + exec =/= spawn
-pub fn sys_spawn(_path: *const u8) -> isize {
+pub fn sys_spawn(path: *const u8) -> isize {
     trace!(
         "kernel:pid[{}] sys_spawn NOT IMPLEMENTED",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-    -1
+    let path = translated_str(current_user_token(), path);
+    current_task_spawn(path.as_str())
 }
 
 /// set priority syscall
 ///
 /// YOUR JOB: Set task priority
-pub fn sys_set_priority(_prio: isize) -> isize {
+pub fn sys_set_priority(prio: isize) -> isize {
     trace!(
         "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-    -1
+    if prio <= 1 {
+        -1
+    } else {
+        let mut current_task = current_task().unwrap();
+        current_task.set_priority(prio as usize) as isize
+    }
 }
