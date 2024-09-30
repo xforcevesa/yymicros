@@ -28,7 +28,12 @@ cargo install cargo-binutils
 rustup component add llvm-tools-preview
 wget https://github.com/rustsbi/rustsbi-qemu/releases/download/v0.1.1/rustsbi-qemu-release.zip
 unzip rustsbi-qemu-release.zip
+# Bootstrap the OS on QEMU
 make run
+# Clean up
+make clean
+# Count out the lines of source
+make total_lines
 ```
 
 ## Contents

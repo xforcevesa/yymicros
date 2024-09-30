@@ -47,7 +47,7 @@ static inline void exit(int status) {
     syscall(SYS_exit, status, 0, 0);
 }
 
-int main() {
+int _start() {
     const char *msg_parent = "Hello from parent process!\n";
     const char *msg_child = "Hello from child process!\n";
     long pid = my_fork();  // Call fork

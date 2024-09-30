@@ -1,12 +1,14 @@
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use super::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
+use crate::vfs::{VfsDirEntry, VfsError, VfsNodePerm, DevResult};
 use super::{VfsNodeAttr, VfsNodeOps, VfsNodeRef, VfsNodeType, VfsOps};
 use spin::Mutex;
 use fatfs::{Dir, File, LossyOemCpConverter, NullTimeProvider, Read, Seek, SeekFrom, Write};
 
-use super::device::Disk;
+use device::Disk;
+use crate::vfs::device;
 use crate::{impl_vfs_dir_default, impl_vfs_non_dir_default};
 
 pub const BLOCK_SIZE: usize = 512;
@@ -120,6 +122,27 @@ impl VfsNodeOps for FileWrapper<'static> {
         file.seek(SeekFrom::Start(size)).map_err(as_vfs_err)?; // TODO: more efficient
         file.truncate().map_err(as_vfs_err)
     }
+
+    fn clear(&self) -> DevResult {
+        let mut file = self.0.lock();
+        file.truncate().map_err(as_vfs_err)
+    }
+
+    fn is_dir(&self) -> DevResult<bool> {
+        Ok(false)
+    }
+
+    fn is_file(&self) -> DevResult<bool> {
+        Ok(true)
+    }
+
+    fn open(&self) -> DevResult {
+        Ok(())
+    }
+
+    fn release(&self) -> DevResult {
+        Ok(())
+    }
 }
 
 impl VfsNodeOps for DirWrapper<'static> {
@@ -141,11 +164,12 @@ impl VfsNodeOps for DirWrapper<'static> {
             .map_or(None, |dir| Some(FatFileSystem::new_dir(dir)))
     }
 
-    fn lookup(self: Arc<Self>, path: &str) -> DevResult<VfsNodeRef> {
+    fn lookup(&self, path: &str) -> DevResult<VfsNodeRef> {
         debug!("lookup at fatfs: {}", path);
         let path = path.trim_matches('/');
         if path.is_empty() || path == "." {
-            return Ok(self.clone());
+            let file = FatFileSystem::new_dir(self.0.clone());
+            return Ok(file);
         }
         if let Some(rest) = path.strip_prefix("./") {
             return self.lookup(rest);
@@ -170,11 +194,37 @@ impl VfsNodeOps for DirWrapper<'static> {
         Err(VfsError::NotFound)
     }
 
-    fn create(&self, path: &str, ty: VfsNodeType) -> DevResult {
+    fn clear(&self) -> DevResult {
+        for entry in self.0.iter() {
+            let Ok(entry) = entry else {
+                return Err(VfsError::IoError);
+            };
+            self.0.remove(entry.file_name().as_str()).unwrap();
+        }
+        Ok(())
+    }
+
+    fn is_dir(&self) -> DevResult<bool> {
+        Ok(true)
+    }
+
+    fn is_file(&self) -> DevResult<bool> {
+        Ok(false)
+    }
+
+    fn open(&self) -> DevResult {
+        Ok(())
+    }
+
+    fn release(&self) -> DevResult {
+        Ok(())
+    }
+
+    fn create(&self, path: &str, ty: VfsNodeType) -> DevResult<VfsNodeRef> {
         debug!("create {:?} at fatfs: {}", ty, path);
         let path = path.trim_matches('/');
         if path.is_empty() || path == "." {
-            return Ok(());
+            return Err(VfsError::InvalidInput(None));
         }
         if let Some(rest) = path.strip_prefix("./") {
             return self.create(rest, ty);
@@ -183,11 +233,13 @@ impl VfsNodeOps for DirWrapper<'static> {
         match ty {
             VfsNodeType::File => {
                 self.0.create_file(path).map_err(as_vfs_err)?;
-                Ok(())
+                let file = self.0.open_file(path).map_err(as_vfs_err)?;
+                Ok(FatFileSystem::new_file(file))
             }
             VfsNodeType::Dir => {
                 self.0.create_dir(path).map_err(as_vfs_err)?;
-                Ok(())
+                let dir = self.0.open_dir(path).map_err(as_vfs_err)?;
+                Ok(FatFileSystem::new_dir(dir))
             }
             _ => Err(VfsError::Unsupported),
         }
@@ -203,25 +255,43 @@ impl VfsNodeOps for DirWrapper<'static> {
         self.0.remove(path).map_err(as_vfs_err)
     }
 
-    fn read_dir(&self, start_idx: usize, dirents: &mut [VfsDirEntry]) -> DevResult<usize> {
-        let mut iter = self.0.iter().skip(start_idx);
-        for (i, out_entry) in dirents.iter_mut().enumerate() {
-            let x = iter.next();
-            match x {
-                Some(Ok(entry)) => {
-                    let ty = if entry.is_dir() {
-                        VfsNodeType::Dir
-                    } else if entry.is_file() {
-                        VfsNodeType::File
-                    } else {
-                        unreachable!()
-                    };
-                    *out_entry = VfsDirEntry::new(&entry.file_name(), ty);
-                }
-                _ => return Ok(i),
-            }
+    // fn read_dir(&self, start_idx: usize, dirents: &mut [VfsDirEntry]) -> DevResult<usize> {
+    //     let mut iter = self.0.iter().skip(start_idx);
+    //     for (i, out_entry) in dirents.iter_mut().enumerate() {
+    //         let x = iter.next();
+    //         match x {
+    //             Some(Ok(entry)) => {
+    //                 let ty = if entry.is_dir() {
+    //                     VfsNodeType::Dir
+    //                 } else if entry.is_file() {
+    //                     VfsNodeType::File
+    //                 } else {
+    //                     unreachable!()
+    //                 };
+    //                 *out_entry = VfsDirEntry::new(&entry.file_name(), ty);
+    //             }
+    //             _ => return Ok(i),
+    //         }
+    //     }
+    //     Ok(dirents.len())
+    // }
+
+    fn read_dir(&self) -> DevResult<Vec<VfsDirEntry>> {
+        let mut entries = Vec::new();
+        for entry in self.0.iter() {
+            let Ok(entry) = entry else {
+                return Err(VfsError::IoError);
+            };
+            let ty = if entry.is_dir() {
+                VfsNodeType::Dir
+            } else if entry.is_file() {
+                VfsNodeType::File
+            } else {
+                unreachable!()
+            };
+            entries.push(VfsDirEntry::new(&entry.file_name(), ty));
         }
-        Ok(dirents.len())
+        Ok(entries)
     }
 
     fn rename(&self, src_path: &str, dst_path: &str) -> DevResult {

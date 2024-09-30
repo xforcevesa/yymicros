@@ -1,34 +1,34 @@
 .altmacro
-.macro SAVE_SN_TASK n
+.macro SAVE_SN n
     sd s\n, (\n+2)*8(a0)
 .endm
-.macro LOAD_SN_TASK n
+.macro LOAD_SN n
     ld s\n, (\n+2)*8(a1)
 .endm
     .section .text
-    .globl __switch_task
-__switch_task:
-    # __switch_task(
-    #     current_task_cx_ptr: *mut TaskContext,
-    #     next_task_cx_ptr: *const TaskContext
+    .globl __switch
+__switch:
+    # __switch(
+    #     current_process_cx_ptr: *mut TaskContext,
+    #     next_process_cx_ptr: *const TaskContext
     # )
-    # save kernel stack of current task
+    # save kernel stack of current process
     sd sp, 8(a0)
     # save ra & s0~s11 of current execution
     sd ra, 0(a0)
     .set n, 0
     .rept 12
-        SAVE_SN_TASK %n
+        SAVE_SN %n
         .set n, n + 1
     .endr
     # restore ra & s0~s11 of next execution
     ld ra, 0(a1)
     .set n, 0
     .rept 12
-        LOAD_SN_TASK %n
+        LOAD_SN %n
         .set n, n + 1
     .endr
-    # restore kernel stack of next task
+    # restore kernel stack of next process
     ld sp, 8(a1)
     ret
 

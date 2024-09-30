@@ -6,7 +6,7 @@
 #![no_main]
 // #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
-
+#![feature(assert_matches)]
 #![feature(get_mut_unchecked)]
 
 #[macro_use]
@@ -17,11 +17,19 @@ mod panic;
 mod config;
 mod mem;
 mod sync;
-mod task;
+// mod process;
 mod trap;
 mod syscall;
 mod loader;
 mod vfs;
+
+#[allow(dead_code)]
+#[path = "boards/qemu.rs"]
+mod board;
+
+#[allow(dead_code)]
+#[path = "task/mod.rs"]
+mod process;
 
 #[macro_use]
 extern crate bitflags;
@@ -52,14 +60,14 @@ pub fn rust_main() -> ! {
     vfs::test_path_canonicalize();
     vfs::init_rootfs_on_disk();
     vfs::fs_test();
-    task::add_initproc();
+    process::add_initproc();
     println!("after initproc!");
     trap::init();
     trap::enable_timer_interrupt();
     time::set_next_trigger();
-    loader::list_apps();
-    task::add_user_app("hello_syscall");
-    task::run_tasks();
+    // loader::list_apps();
+    loader::list_bins();
+    process::run_tasks();
     panic!("Unreachable in rust_main!");
 }
 
