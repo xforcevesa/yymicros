@@ -113,11 +113,12 @@ use process::*;
 use sync::*;
 use thread::*;
 
-use crate::vfs::Stat;
+use crate::{process::task_watch_syscall, vfs::Stat};
 
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 4]) -> isize {
     // println!("Syscall {} called with args: {:?}", syscall_id, args);
+    task_watch_syscall(syscall_id);
     match syscall_id {
         SYSCALL_DUP => sys_dup(args[0]),
         SYSCALL_LINKAT => sys_linkat(args[1] as *const u8, args[3] as *const u8),

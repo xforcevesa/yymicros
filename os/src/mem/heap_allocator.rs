@@ -1,10 +1,10 @@
 //! The global allocator
 use crate::config::KERNEL_HEAP_SIZE;
-use buddy_system_allocator::LockedHeap;
+use lab_allocator::NewSlabAllocator;
 
 #[global_allocator]
 /// heap allocator instance
-static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
+static HEAP_ALLOCATOR: NewSlabAllocator = NewSlabAllocator::new();
 
 #[alloc_error_handler]
 /// panic when heap allocation error occurs

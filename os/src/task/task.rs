@@ -2,7 +2,7 @@
 
 use super::id::TaskUserRes;
 use super::stride::Stride;
-use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
+use super::{current_task, kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
 use crate::config::MAX_SYSCALL_NUM;
 use crate::trap::TrapContext;
 use crate::{mem::PhysPageNum, sync::UPSafeCell};
@@ -72,6 +72,10 @@ impl TaskControlBlockInner {
     fn get_status(&self) -> TaskStatus {
         self.task_status
     }
+
+    fn watch_syscall(&mut self, syscall_id: usize) {
+        self.syscall_times[syscall_id] += 1
+    }
 }
 
 impl TaskControlBlock {
@@ -104,6 +108,11 @@ impl TaskControlBlock {
             stride: Stride::new()
         }
     }
+
+    fn watch_syscall(&mut self, syscall_id: usize) {
+        let mut inner = self.inner_exclusive_access();
+        inner.watch_syscall(syscall_id);
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -115,4 +124,8 @@ pub enum TaskStatus {
     Running,
     /// blocked
     Blocked,
+}
+
+pub fn task_watch_syscall(syscall_id: usize) {
+    current_task().unwrap().inner_exclusive_access().watch_syscall(syscall_id);
 }

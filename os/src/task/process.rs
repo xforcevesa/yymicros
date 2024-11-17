@@ -63,11 +63,11 @@ pub struct ProcessControlBlockInner {
 /// Locker of Process Control Block
 pub struct ProcessLocker {
     /// the available number of threads
-    pub available: Vec<usize>,
+    available: Vec<usize>,
     /// the allocated number of threads
-    pub allocation: Vec<Vec<usize>>,
+    allocation: Vec<Vec<usize>>,
     /// the need number of threads
-    pub need: Vec<Vec<usize>>,
+    need: Vec<Vec<usize>>,
     /// the finish number of threads
     pub finish: Vec<bool>,
 }
