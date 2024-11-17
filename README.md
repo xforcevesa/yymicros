@@ -8,6 +8,10 @@ But now, it reborns again and continues to live.
 
 It'll be a fun project to work on and a composition for the oscomp2025.
 
+## Features
+
+[ 2024.11.17 ] Modified Slab Global Alllocator Added, at `crates/lab_allocator` and `crates/new_slab_allocator` directory.
+
 ## VSCode Configuration
 
 ```json
