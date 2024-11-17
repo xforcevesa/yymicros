@@ -17,6 +17,7 @@ pub struct TlsfByteAllocator {
     used_bytes: usize,
 }
 
+#[allow(dead_code)]
 impl TlsfByteAllocator {
     /// Creates a new empty [`TlsfByteAllocator`].
     pub const fn new() -> Self {

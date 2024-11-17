@@ -24,8 +24,7 @@ build-ext4: prepare-ext4 prepare
 		cargo build --release --features ext4 --target riscv64gc-unknown-none-elf && cd ..
 	rust-objcopy --strip-all os/target/riscv64gc-unknown-none-elf/release/os -O binary os/target/riscv64gc-unknown-none-elf/release/os.bin
 
-
-run-fatfs: build-fatfs
+run-qemu:
 	qemu-system-riscv64 \
         -machine virt \
         -nographic \
@@ -35,15 +34,9 @@ run-fatfs: build-fatfs
 	    -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 		-m size=1G,maxmem=1G
 
-run-ext4: build-ext4
-	qemu-system-riscv64 \
-        -machine virt \
-        -nographic \
-        -bios ./rustsbi-qemu.bin \
-        -kernel os/target/riscv64gc-unknown-none-elf/release/os.bin \
-	    -drive file=disk.img,if=none,format=raw,id=x0 \
-	    -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
-		-m size=1G,maxmem=1G
+run-fatfs: build-fatfs run-qemu
+
+run-ext4: build-ext4 run-qemu
 
 run: run-fatfs
 
