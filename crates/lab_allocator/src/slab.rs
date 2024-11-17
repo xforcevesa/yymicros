@@ -4,7 +4,6 @@
 
 use allocator::{AllocError, AllocResult, BaseAllocator, ByteAllocator};
 use core::alloc::Layout;
-use core::cmp::max;
 use core::ptr::NonNull;
 use slab_allocator::Heap;
 
