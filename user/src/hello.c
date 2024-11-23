@@ -1,6 +1,6 @@
 #include "syscall_test.h"
 
-int _start() {
+void _start() {
     const char hello[] = "Hello World in ELF!\n";
 
     // Write the input back to stdout (fd = 1)
@@ -8,6 +8,4 @@ int _start() {
 
     // Exit the program with code 0
     syscall_exit(0);
-
-    return 0;  // This return won't be reached
 }

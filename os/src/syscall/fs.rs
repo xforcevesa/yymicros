@@ -58,8 +58,10 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
     let process = current_process();
+    // println!("path: {:?}, flags: {:#x}", path, flags);
     let token = current_user_token();
     let path = translated_str(token, path);
+    // println!("path: {}", path); 
     if let Some(inode) = open_file(path.as_str(), OpenFlags::from_bits(flags).unwrap()) {
         let mut inner = process.inner_exclusive_access();
         let fd = inner.alloc_fd();

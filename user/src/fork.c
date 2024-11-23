@@ -1,17 +1,5 @@
 #include "syscall_test.h"
 
-static inline void write_num(int fd, int num) {
-    char buf[10];
-    int i = 0;
-    do {
-        buf[i++] = '0' + num % 10;
-        num /= 10;
-    } while (num > 0);
-    while (i > 0) {
-        syscall_write(fd, &buf[--i], 1);
-    }
-}
-
 void _start() {
     const char msg_parent[] = "Hello from parent process!\n";
     const char msg_child[] = "Hello from child process!\n";

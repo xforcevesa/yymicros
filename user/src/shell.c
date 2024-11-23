@@ -18,7 +18,7 @@ void strip_newline(char *buffer) {
     }
 }
 
-int _start() {
+void _start() {
     char buffer[BUF_SIZE];
     char *argv[] = {buffer, NULL};  // argv for execve
     char *envp[] = {NULL};  // Empty environment
@@ -49,6 +49,7 @@ int _start() {
             } else {
                 syscall_write(1, "\r\n", 2);  // Print a newline after the command is executed
                 *buffer = '\0';  // Reset the buffer for the next command
+                syscall_exit(0);  // Exit the child process
             }
             
         } else {
@@ -57,5 +58,5 @@ int _start() {
         }
     }
 
-    return 0;
+    syscall_exit(0);  // Exit the shell
 }

@@ -4,6 +4,7 @@
 output_dir="elf"
 src_dir="src"
 
+rm -rf $output_dir
 mkdir -p $output_dir
 
 # Loop over all .c files in the src directory

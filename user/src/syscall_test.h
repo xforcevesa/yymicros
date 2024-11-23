@@ -5,6 +5,8 @@
 #define SYSCALL_EXECVE  221
 #define SYSCALL_WAITPID 260
 #define SYSCALL_YIELD   124
+#define SYSCALL_OPEN    56
+#define SYSCALL_CLOSE   57
 
 #define BUF_SIZE 128
 
@@ -113,4 +115,47 @@ static inline void syscall_yield() {
         : [syscall_num] "r" (SYSCALL_YIELD)
         : "a7"
     );
+}
+
+// Inline assembly for `write` syscall
+static inline int syscall_open(const char *path, int flags) {
+    long ret;
+    asm volatile (
+        "mv a7, %[syscall_num]\n"
+        "mv a1, %[path]\n"
+        "mv a2, %[flags]\n"
+        "ecall\n"
+        "mv %[ret], a0\n"
+        : [ret] "=r" (ret)
+        : [syscall_num] "r" (SYSCALL_OPEN), [path] "r" (path), [flags] "r" (flags)
+        : "a0", "a1", "a2", "a7"
+    );
+    return ret;
+}
+
+static inline int syscall_close(int fd) {
+    long ret;
+    asm volatile (
+        "mv a7, %[syscall_num]\n"
+        "mv a0, %[fd]\n"
+        "ecall\n"
+        "mv %[ret], a0\n"
+        : [ret] "=r" (ret)
+        : [syscall_num] "r" (SYSCALL_CLOSE), [fd] "r" (fd)
+        : "a0", "a7"
+    );
+    return ret;
+}
+
+
+static inline void write_num(int fd, int num) {
+    char buf[10];
+    int i = 0;
+    do {
+        buf[i++] = '0' + num % 10;
+        num /= 10;
+    } while (num > 0);
+    while (i > 0) {
+        syscall_write(fd, &buf[--i], 1);
+    }
 }

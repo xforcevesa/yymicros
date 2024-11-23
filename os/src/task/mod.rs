@@ -226,7 +226,7 @@ lazy_static! {
     /// the name "initproc" may be changed to any other app name like "usertests",
     /// but we have user_shell, so we don't need to change it.
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let inode = open_file("/bin/shell_syscall.elf", OpenFlags::RDONLY).unwrap();
+        let inode = open_file("/bin/cat.elf", OpenFlags::RDONLY).unwrap();
         let v = inode.read_all();
         println!("Read size: {}", v.len());
         ProcessControlBlock::new(v.as_slice())
