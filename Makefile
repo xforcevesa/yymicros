@@ -1,17 +1,23 @@
 prepare-fatfs:
-	dd if=/dev/zero of=./disk.img bs=1M count=50
+	rm -rf ./disk.img
+	dd if=/dev/zero of=./disk.img bs=1M count=100
 	mkfs.vfat -F 32 ./disk.img
 
 prepare-ext4:
-	dd if=/dev/zero of=./disk.img bs=1M count=50
+	rm -rf ./disk.img
+	dd if=/dev/zero of=./disk.img bs=1M count=100
 	mkfs.ext4 ./disk.img
 	
 prepare:
 	mkdir -p ./loopback
 	sudo mount ./disk.img ./loopback
-	cd user && bash compile.sh && cd ..
+	cd riscv-syscalls-testing/user-old && bash compile.sh && cd -
+	cd riscv-syscalls-testing/user && bash build-oscomp.sh && cd -
 	sudo mkdir -p ./loopback/bin
-	sudo cp user/elf/* ./loopback/bin
+	sudo mkdir -p ./loopback/tests
+	sudo cp riscv-syscalls-testing/user-old/elf/* ./loopback/bin
+	sudo cp riscv-syscalls-testing/user/build/riscv64/* ./loopback/tests -r
+	sudo sync
 	sudo umount ./loopback
 
 build-fatfs: prepare-fatfs prepare
@@ -44,7 +50,7 @@ run1: run-ext4
 
 clean:
 	cd os && cargo clean && cd ..
-	rm -rf target user/elf/* disk.img
+	rm -rf target riscv-syscalls-testing/user-old/elf/* disk.img
 
 total_lines:
 	bash total_lines.sh

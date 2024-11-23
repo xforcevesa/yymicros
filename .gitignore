@@ -39,3 +39,4 @@ link_app.S
 /log.txt
 /loopback
 *.lock
+!.gitignore

@@ -6,7 +6,7 @@ fn main() {
     insert_app_data().unwrap();
 }
 
-static TARGET_PATH: &str = "../user/elf/";
+static TARGET_PATH: &str = "../riscv-syscalls-testing/user-old/elf/";
 
 fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();

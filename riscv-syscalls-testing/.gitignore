@@ -1,0 +1,5 @@
+riscv-linux-rootfs/archives/
+riscv-linux-rootfs/build/
+user/build
+user/lib/syscall_ids.h
+user/riscv64
