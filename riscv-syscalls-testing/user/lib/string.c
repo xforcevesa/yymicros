@@ -148,3 +148,33 @@ tail:
     memset(d, 0, n);
     return d;
 }
+
+int strcspn(const char *s, const char *reject) {
+    const char *p;
+    for (p = s; *p; p++) {
+        const char *r;
+        for (r = reject; *r; r++) {
+            if (*p == *r) {
+                return p - s;
+            }
+        }
+    }
+    return p - s;
+}
+
+char *strtok(char *restrict s, const char *restrict sep) {
+    static char *last = NULL;
+    if (s == NULL) {
+        s = last;
+    }
+    s += strcspn(s, sep);
+    if (*s == '\0') {
+        last = NULL;
+        return NULL;
+    }
+    last = s + strcspn(s, sep);
+    if (*last) {
+        *last++ = '\0';
+    }
+    return s;
+}

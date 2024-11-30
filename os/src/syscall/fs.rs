@@ -1,5 +1,5 @@
-use crate::vfs::{link_file, open_file, unlink_file, OpenFlags, Stat, make_pipe};
-use crate::mem::{translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
+use crate::vfs::{absolute_path_2, create_dir_by_str, current_dir, link_file, make_pipe, open_file, set_current_dir, unlink_file, OpenFlags, Stat};
+use crate::mem::{read_u8_slice_to_user_buffer, translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
 use crate::process::{current_process, current_task, current_user_token};
 use alloc::sync::Arc;
 /// write syscall
@@ -88,8 +88,8 @@ pub fn sys_close(fd: usize) -> isize {
     inner.fd_table[fd].take();
     0
 }
-/// pipe syscall
-pub fn sys_pipe(pipe: *mut usize) -> isize {
+/// pipe2 syscall
+pub fn sys_pipe2(pipe: *mut usize) -> isize {
     trace!(
         "kernel:pid[{}] sys_pipe",
         current_task().unwrap().process.upgrade().unwrap().getpid()
@@ -125,6 +125,33 @@ pub fn sys_dup(fd: usize) -> isize {
     new_fd as isize
 }
 
+/// dup3 syscall
+pub fn sys_dup3(old_fd: usize, new_fd: usize) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_dup3",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let process = current_process();
+    let mut inner = process.inner_exclusive_access();
+    if old_fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if inner.fd_table[old_fd].is_none() {
+        return -1;
+    }
+    if new_fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if new_fd == old_fd {
+        return new_fd as isize;
+    }
+    if inner.fd_table[new_fd].is_some() {
+        inner.fd_table[new_fd].take();
+    }
+    inner.fd_table[new_fd] = Some(Arc::clone(inner.fd_table[old_fd].as_ref().unwrap()));
+    new_fd as isize
+}
+
 /// YOUR JOB: Implement fstat.
 pub fn sys_fstat(fd: usize, st: *mut Stat) -> isize {
     trace!(
@@ -143,7 +170,12 @@ pub fn sys_fstat(fd: usize, st: *mut Stat) -> isize {
         if let Some(stat) = file.stat() {
             let token = current_user_token();
 
-            *translated_refmut(token, st) = stat;
+            // *translated_refmut(token, st) = stat;
+            let size = core::mem::size_of::<Stat>();
+            let stat_slice: &[u8] = unsafe { core::slice::from_raw_parts(&stat as *const Stat as *const _, size) };
+            let buf_slice = translated_byte_buffer(token, st as *mut _, size);
+            let mut user_buffer = UserBuffer::new(buf_slice);
+            read_u8_slice_to_user_buffer(stat_slice, &mut user_buffer);
 
             return 0;
         }
@@ -181,4 +213,76 @@ pub fn sys_unlinkat(name: *const u8) -> isize {
     let name = translated_str(token, name);
 
     unlink_file(name.as_str())
+}
+
+pub fn sys_getcwd(buf: *mut u8, size: usize) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_getcwd NOT IMPLEMENTED",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let token = current_user_token();
+
+    let cwd = current_dir().unwrap();
+
+    let cwd_str = cwd;
+
+    let cwd_bytes = cwd_str.as_bytes();
+
+    let len = cwd_bytes.len();
+
+    if len > size {
+        return -1;
+    }
+
+    let buf_slice = translated_byte_buffer(token, buf, len);
+    let mut user_buffer = UserBuffer::new(buf_slice);
+
+    read_u8_slice_to_user_buffer(cwd_bytes, &mut user_buffer);
+    len as isize
+}
+
+/// chdir syscall
+pub fn sys_chdir(path: *const u8) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_chdir NOT IMPLEMENTED",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let token = current_user_token();
+
+    let path = translated_str(token, path);
+
+    // TODO: Implement chdir
+    match set_current_dir(path.as_str()) {
+        Ok(_) => 0,
+        Err(_) => -1,
+    }
+}
+
+/// mkdirat syscall
+pub fn sys_mkdirat(dirfd: usize, path: *const u8, _mode: u32) -> isize {
+    trace!(
+        "kernel:pid[{}] sys_mkdirat",
+        current_task().unwrap().process.upgrade().unwrap().getpid()
+    );
+    let token = current_user_token();
+
+    let path = translated_str(token, path);
+
+    let original_dir_path = match current_process().inner_exclusive_access().fd_table[dirfd].as_ref() {
+        Some(inode) => match inode.path() {
+            Some(path) => path,
+            None => return -1,
+        },
+        None => return -1,
+    };
+
+    let path = match absolute_path_2(original_dir_path.as_str(), path.as_str()) {
+        Ok(path) => path,
+        Err(_) => return -1,
+    };
+
+    match create_dir_by_str("/", &path) {
+        Ok(_) => 0,
+        Err(_) => -1,
+    }
 }

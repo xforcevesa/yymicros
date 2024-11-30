@@ -13,5 +13,7 @@ size_t strnlen(const char *s, size_t n);
 char *strncpy(char *restrict d, const char *restrict s, size_t n);
 int strncmp(const char *_l, const char *_r, size_t n);
 char *strcpy(char *restrict d, const char *s);
+int strcspn(const char *s, const char *reject);
+char *strtok(char *restrict s, const char *restrict sep);
 
 #endif // __STRING_H__

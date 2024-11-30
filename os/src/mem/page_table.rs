@@ -279,3 +279,12 @@ impl Iterator for UserBufferIterator {
         }
     }
 }
+
+pub fn read_u8_slice_to_user_buffer(buff: &[u8], user_buffer: &mut UserBuffer) {
+    let mut idx = 0;
+    for b in user_buffer.buffers.iter_mut() {
+        let len = b.len();
+        b.copy_from_slice(&buff[idx..idx + len]);
+        idx += len;
+    }
+}

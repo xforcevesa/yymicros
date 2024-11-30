@@ -19,7 +19,6 @@ mod mem;
 mod sync;
 mod trap;
 mod syscall;
-mod loader;
 mod vfs;
 mod embassy;
 
@@ -44,7 +43,6 @@ extern crate fatfs;
 
 use core::arch::global_asm;
 global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("link_app.S"));
 
 #[no_mangle]
 /// kernel enter point
@@ -65,8 +63,6 @@ pub fn rust_main() -> ! {
     trap::init();
     trap::enable_timer_interrupt();
     time::set_next_trigger();
-    // loader::list_apps();
-    loader::list_bins();
     process::run_tasks();
     panic!("Unreachable in rust_main!");
 }

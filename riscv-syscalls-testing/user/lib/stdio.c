@@ -27,6 +27,18 @@ int puts(const char *s)
     return r;
 }
 
+int gets(char *s, int n)
+{
+    int c, i = 0;
+    while ((c = getchar()) != '\r' && c != '\n' && i < n - 1)
+    {
+        s[i++] = c;
+    }
+    s[i++] = '\n';
+    s[i] = '\0';
+    return i;
+}
+
 static void out(int f, const char *s, size_t l)
 {
     write(f, s, l);

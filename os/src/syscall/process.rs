@@ -1,6 +1,6 @@
 use crate::{
     config::MAX_SYSCALL_NUM,
-    mem::{translated_ref, translated_refmut, translated_str},
+    mem::{read_u8_slice_to_user_buffer, translated_byte_buffer, translated_ref, translated_refmut, translated_str, UserBuffer},
     process::{
         current_process, current_task, current_task_memset_mmap, current_task_memset_munmap, current_task_spawn, current_user_token, exit_current_and_run_next, fetch_task_info, pid2process, suspend_current_and_run_next, SignalFlags, TaskStatus
     },
@@ -107,7 +107,7 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
 ///
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
-pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
+pub fn sys_wait4(pid: isize, exit_code_ptr: *mut i32) -> isize {
     //trace!("kernel: sys_waitpid");
     let process = current_process();
     // find a child process
@@ -169,10 +169,26 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     let token = current_user_token();
     let time = get_time_us();
     // TODO: split TimeVal into two pages
-    *translated_refmut(token, ts) = TimeVal {
+    let tv = TimeVal {
         sec: time / 1_000_000,
         usec: time % 1_000_000,
     };
+
+    // Get the size of the struct
+    let size = core::mem::size_of::<TimeVal>();
+
+    let tv_bytes = {
+        let ptr = &tv as *const TimeVal as *const u8;
+
+        // Create a u8 slice from the struct
+        let byte_slice = unsafe { core::slice::from_raw_parts(ptr, size) };
+
+        byte_slice
+    };
+
+    let mut user_buffer = UserBuffer::new(translated_byte_buffer(token, ts as *mut _, size));
+    read_u8_slice_to_user_buffer(tv_bytes, &mut user_buffer);
+
     0
 }
 
@@ -186,7 +202,15 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
         "kernel:pid[{}] sys_task_info NOT IMPLEMENTED",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-    *translated_refmut(current_user_token(), ti) = fetch_task_info();
+    let task_info = fetch_task_info();
+    let size = core::mem::size_of::<TaskInfo>();
+    let ti_bytes = {
+        let ptr = &task_info as *const TaskInfo as *const u8;
+        let byte_slice = unsafe { core::slice::from_raw_parts(ptr, size) };
+        byte_slice
+    };
+    let mut user_buffer = UserBuffer::new(translated_byte_buffer(current_user_token(), ti as *mut _, size));
+    read_u8_slice_to_user_buffer(ti_bytes, &mut user_buffer);
     0
 }
 

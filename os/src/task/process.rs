@@ -5,8 +5,7 @@ use super::manager::insert_into_pid2process;
 use super::TaskControlBlock;
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
-use crate::loader::get_bin_data_by_name;
-use crate::vfs::{File, Stdin, Stdout};
+use crate::vfs::{get_file_size, read_file_by_str, File, Stdin, Stdout};
 use crate::mem::{translated_refmut, MemorySet, VirtAddr, KERNEL_SPACE};
 use crate::sync::{Condvar, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
@@ -238,9 +237,16 @@ impl ProcessControlBlock {
 
     /// Spawn
     pub fn spawn(self: &Arc<Self>, path: &str) -> Option<Arc<Self>> {
-        let name = path;
+        let file_size = match get_file_size(path) {
+            Ok(s) => s,
+            Err(_) => return Option::None
+        };
+        let elf_data = match read_file_by_str(path, 0, file_size as usize) {
+            Ok(d) => d,
+            Err(_) => return Option::None
+        };
         // load elf from file system
-        let ret =ProcessControlBlock::new(get_bin_data_by_name(name).unwrap());
+        let ret = ProcessControlBlock::new(&elf_data);
         let mut parent_inner = self.inner_exclusive_access();
         parent_inner.children.push(ret.clone());
         Some(ret)
@@ -347,6 +353,10 @@ impl ProcessControlBlock {
         } else {
             None
         }
+    }
+
+    pub fn get_parent_pid(&self) -> Option<usize> {
+        self.inner_exclusive_access().parent.as_ref().map(|p| p.upgrade().unwrap().getpid())
     }
 }
 

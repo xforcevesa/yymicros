@@ -26,7 +26,8 @@ pub use paths::test_path_canonicalize;
 
 pub use fs::fs_test;
 
-pub use fs::{list_dir_by_str, read_file_by_str, get_file_size};
+#[allow(unused)]
+pub use fs::{list_dir_by_str, read_file_by_str, get_file_size, current_dir, set_current_dir, create_dir_by_str, absolute_path_2};
 
 pub use os::{FileSystemInfo, VfsDirEntry, VfsNodeAttr, VfsNodePerm, VfsNodeType};
 
@@ -188,6 +189,10 @@ pub trait VfsNodeOps: Send + Sync {
 
     #[allow(unused)]
     fn unlink(&self, _path: &str) -> DevResult {
+        yy_err!(Unsupported)
+    }
+
+    fn path(&self) -> DevResult<&str> {
         yy_err!(Unsupported)
     }
 }

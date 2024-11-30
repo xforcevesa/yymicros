@@ -61,6 +61,9 @@ impl File for Stdin {
     fn stat(&self) -> Option<Stat> {
         None
     }
+    fn path(&self) -> Option<alloc::string::String> {
+        None
+    }
 }
 
 impl File for Stdout {
@@ -80,6 +83,9 @@ impl File for Stdout {
         user_buf.len()
     }
     fn stat(&self) -> Option<Stat> {
+        None
+    }
+    fn path(&self) -> Option<alloc::string::String> {
         None
     }
 }

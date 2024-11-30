@@ -48,9 +48,14 @@ run: run-fatfs
 
 run1: run-ext4
 
+build: build-fatfs
+
+build1: build-ext4
+
 clean:
 	cd os && cargo clean && cd ..
 	rm -rf target riscv-syscalls-testing/user-old/elf/* disk.img
+	cd riscv-syscalls-testing/user && make clean && cd -
 
-total_lines:
+total_lines: clean
 	bash total_lines.sh

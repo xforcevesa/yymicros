@@ -6,7 +6,7 @@ output=$(
     find . -path ./rustsbi-qemu-build -prune \
         -o -path ./target -prune -o -type f \
         \( -name "*.rs" -o -name "*.c" -o \
-        -name "*.S" -o -name "*.asm" \) \
+        -name "*.S" -o -name "*.asm" -o -name "*.h" \) \
         -exec wc -l {} +
 )
 

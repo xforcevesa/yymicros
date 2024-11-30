@@ -25,6 +25,7 @@ typedef long int intmax_t;
 int getchar();
 int putchar(int);
 int puts(const char *s);
+int gets(char *s, int n);
 void printf(const char *fmt, ...);
 
 #endif // __STDIO_H__

@@ -45,10 +45,10 @@ target_include_directories(ulib PRIVATE ${ARCH_DIR})
 
 # Execuatble
 set(ENTRY "0x1000")
-#aux_source_directory(src SRCS)
+aux_source_directory(src/user SRCS_USER)
 aux_source_directory(src/oscomp SRCS)
 set(EXECUTABLE_OUTPUT_PATH ${ARCH})
-foreach(PATH ${SRCS})
+foreach(PATH ${SRCS_USER} ${SRCS})
     get_filename_component(NAME ${PATH} NAME_WE)
 
     if ("${CHAPTER}" STREQUAL 2)

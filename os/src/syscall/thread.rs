@@ -120,3 +120,26 @@ pub fn sys_waittid(tid: usize) -> i32 {
         -2
     }
 }
+
+/// getppid syscall
+///
+/// return parent process id of current process
+pub fn sys_getppid() -> isize {
+    trace!(
+        "kernel:pid[{}] tid[{}] sys_getppid",
+        current_task().unwrap().process.upgrade().unwrap().getpid(),
+        current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .res
+            .as_ref()
+            .unwrap()
+            .tid
+    );
+    let task = current_task().unwrap();
+    let process = task.process.upgrade().unwrap();
+    match process.get_parent_pid() {
+        Some(ppid) => ppid as isize,
+        None => -1,
+    }
+}

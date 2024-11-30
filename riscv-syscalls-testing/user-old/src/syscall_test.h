@@ -7,6 +7,7 @@
 #define SYSCALL_YIELD   124
 #define SYSCALL_OPEN    56
 #define SYSCALL_CLOSE   57
+#define SYSCALL_READDIR 89
 
 #define BUF_SIZE 128
 

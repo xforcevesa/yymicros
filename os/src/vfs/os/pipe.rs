@@ -179,4 +179,7 @@ impl File for Pipe {
     fn stat(&self) -> Option<super::inode::Stat> {
         None
     }
+    fn path(&self) -> Option<alloc::string::String> {
+        None
+    }
 }

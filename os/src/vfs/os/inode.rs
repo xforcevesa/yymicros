@@ -1,4 +1,5 @@
 use alloc::collections::btree_map::BTreeMap;
+use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use lazy_static::lazy_static;
@@ -17,6 +18,8 @@ pub trait File: Send + Sync {
     fn write(&self, buf: UserBuffer) -> usize;
     /// stat of file
     fn stat(&self) -> Option<Stat>;
+    /// path of file
+    fn path(&self) -> Option<String>;
 }
 
 
@@ -232,6 +235,14 @@ impl File for OSInode {
             },
             pad: [0; 7],
         })
+    }
+
+    fn path(&self) -> Option<String> {
+        let inner = self.inner.exclusive_access();
+        match inner.inode.path() {
+            Ok(path) => Some(String::from(path)),
+            Err(_) => None,
+        }
     }
 }
 

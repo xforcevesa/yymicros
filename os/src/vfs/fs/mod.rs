@@ -8,9 +8,7 @@ mod ext4;
 use core::assert_matches::assert_matches;
 
 use alloc::{
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
+    borrow::ToOwned, string::{String, ToString}, sync::Arc, vec::Vec
 };
 use alloc::vec;
 use fat::FatFileSystem;
@@ -199,10 +197,14 @@ fn parent_node_of(dir: Option<&VfsNodeRef>, path: &str) -> VfsNodeRef {
 }
 
 pub fn absolute_path(path: &str) -> DevResult<String> {
+    absolute_path_2(CURRENT_DIR_PATH.lock().as_str(), path)
+}
+
+pub fn absolute_path_2(dir: &str, path: &str) -> DevResult<String> {
     if path.starts_with('/') {
         Ok(crate::vfs::paths::canonicalize(path))
     } else {
-        let path = CURRENT_DIR_PATH.lock().clone() + path;
+        let path = dir.to_owned() + "/" + path;
         Ok(crate::vfs::paths::canonicalize(&path))
     }
 }
