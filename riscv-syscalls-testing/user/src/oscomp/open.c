@@ -5,7 +5,7 @@
 void test_open() {
 	TEST_START(__func__);
 	// O_RDONLY = 0, O_WRONLY = 1
-	int fd = open("./text.txt", 0);
+	int fd = open("./tests/text.txt", 0);
 	assert(fd >= 0);
 	char buf[256];
 	int size = read(fd, buf, 256);

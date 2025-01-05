@@ -50,7 +50,7 @@ binary:
 	@cd build && cmake $(cmake_build_args) .. && make
 	@$(CP) src/oscomp/run-all.sh src/oscomp/text.txt build/riscv64/
 	@mkdir build/riscv64/mnt && touch build/riscv64/mnt/test_mount
-	@ln -s build/riscv64/ .
+	@ln -sf build/riscv64/ .
 
 pre:
 	@rm -rf $(out_dir)

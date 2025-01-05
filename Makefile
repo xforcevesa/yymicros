@@ -44,9 +44,9 @@ run-fatfs: build-fatfs run-qemu
 
 run-ext4: build-ext4 run-qemu
 
-run: run-fatfs
+run: clean run-fatfs
 
-run1: run-ext4
+run1: clean run-ext4
 
 build: build-fatfs
 

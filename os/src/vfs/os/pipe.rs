@@ -179,7 +179,10 @@ impl File for Pipe {
     fn stat(&self) -> Option<super::inode::Stat> {
         None
     }
-    fn path(&self) -> Option<alloc::string::String> {
+    fn lookup(&self, _name: &str) -> Option<crate::vfs::VfsNodeRef> {
+        None
+    }
+    fn get_dirents(&self) -> Option<alloc::vec::Vec<crate::syscall::LinuxDirent64>> {
         None
     }
 }

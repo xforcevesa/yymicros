@@ -38,6 +38,12 @@ pub const SYSCALL_SLEEP: usize = 101;
 pub const SYSCALL_YIELD: usize = 124;
 /// kill syscall
 pub const SYSCALL_KILL: usize = 129;
+/// uname syscall
+pub const SYSCALL_UNAME: usize = 160;
+/// times syscall
+pub const SYSCALL_TIMES: usize = 153;
+/// getdents64 syscall
+pub const SYSCALL_GETDENTS64: usize = 61;
 /*
 /// sigaction syscall
 pub const SYSCALL_SIGACTION: usize = 134;
@@ -113,15 +119,19 @@ pub const SYSCALL_CONDVAR_WAIT: usize = 473;
 
 pub use process::TaskInfo;
 
+pub use uname::LinuxDirent64;
+
 mod fs;
 mod process;
 mod sync;
 mod thread;
+mod uname;
 
 use fs::*;
 use process::*;
 use sync::*;
 use thread::*;
+use uname::*;
 
 use crate::{process::task_watch_syscall, vfs::Stat};
 
@@ -134,9 +144,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 4]) -> isize {
         SYSCALL_CHDIR => sys_chdir(args[0] as *const u8),
         SYSCALL_DUP => sys_dup(args[0]),
         SYSCALL_DUP3 => sys_dup3(args[0], args[1]),
+        SYSCALL_UNAME => sys_uname(args[0] as *mut u8),
         SYSCALL_LINKAT => sys_linkat(args[1] as *const u8, args[3] as *const u8),
         SYSCALL_UNLINKAT => sys_unlinkat(args[1] as *const u8),
         SYSCALL_MKDIRAT => sys_mkdirat(args[1], args[2] as *const u8, args[3] as u32),
+        SYSCALL_GETDENTS64 => sys_getdents64(args[0], args[1] as *mut u8, args[2]),
+        SYSCALL_TIMES => sys_times(args[0] as *mut TimesVal),
         SYSCALL_OPENAT => sys_open(args[1] as *const u8, args[2] as u32),
         SYSCALL_CLOSE => sys_close(args[0]),
         SYSCALL_PIPE2 => sys_pipe2(args[0] as *mut usize),

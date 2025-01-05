@@ -24,6 +24,9 @@ void _start() {
     char *envp[] = {NULL};  // Empty environment
     
     while (1) {
+        for (int i = 0; i < BUF_SIZE; i++) {
+            buffer[i] = 0;
+        }
         // Read the command from the user
         read_command(buffer, BUF_SIZE);
         strip_newline(buffer);  // Remove the newline from the command
@@ -44,7 +47,11 @@ void _start() {
             // In child process, execute the command
             if (!empty && syscall_execve(buffer, argv, envp) < 0) {
                 // If execve fails, print an error message and exit
-                syscall_write(1, "Command not found\r\n", 18);
+                syscall_write(1, "Command not found: ", 19);
+                int buff_size;
+                for (buff_size = 0; buffer[buff_size]; buff_size++);
+                syscall_write(1, buffer, buff_size);
+                syscall_write(1, "\r\n", 2);
                 syscall_exit(1);
             } else {
                 syscall_write(1, "\r\n", 2);  // Print a newline after the command is executed

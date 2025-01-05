@@ -1,5 +1,4 @@
 use alloc::collections::btree_map::BTreeMap;
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use lazy_static::lazy_static;
@@ -19,7 +18,9 @@ pub trait File: Send + Sync {
     /// stat of file
     fn stat(&self) -> Option<Stat>;
     /// path of file
-    fn path(&self) -> Option<String>;
+    fn lookup(&self, name: &str) -> Option<VfsNodeRef>;
+    /// get dirents of file
+    fn get_dirents(&self) -> Option<Vec<LinuxDirent64>>;
 }
 
 
@@ -53,6 +54,7 @@ bitflags! {
 }
 
 use crate::sync::UPSafeCell;
+use crate::syscall::LinuxDirent64;
 use crate::vfs::fs::ROOT_DIR;
 
 use crate::vfs::VfsNodeRef;
@@ -237,12 +239,32 @@ impl File for OSInode {
         })
     }
 
-    fn path(&self) -> Option<String> {
-        let inner = self.inner.exclusive_access();
-        match inner.inode.path() {
-            Ok(path) => Some(String::from(path)),
+    fn lookup(&self, path: &str) -> Option<VfsNodeRef> {
+        match self.inner.exclusive_access().inode.lookup(path) {
+            Ok(inode) => Some(inode),
             Err(_) => None,
         }
+    }
+    fn get_dirents(&self) -> Option<Vec<LinuxDirent64>> {
+        let inner = self.inner.exclusive_access();
+        let mut dirents = Vec::new();
+        if let Ok(entries) = inner.inode.read_dir() {
+            for entry in entries {
+                let mut dirent = LinuxDirent64 {
+                    d_ino: 0,
+                    d_off: 0,
+                    d_reclen: 0,
+                    d_type: 0,
+                    d_name: [0; 256],
+                };
+                let name = entry.name_as_bytes();
+                let name_len = name.len();
+                dirent.d_reclen = (name_len + 1) as u16;
+                dirent.d_name[..name_len].copy_from_slice(name);
+                dirents.push(dirent);
+            }
+        }
+        Some(dirents)
     }
 }
 

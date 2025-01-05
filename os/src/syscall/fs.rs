@@ -1,4 +1,4 @@
-use crate::vfs::{absolute_path_2, create_dir_by_str, current_dir, link_file, make_pipe, open_file, set_current_dir, unlink_file, OpenFlags, Stat};
+use crate::vfs::{create_dir, current_dir, link_file, make_pipe, open_file, set_current_dir, unlink_file, OpenFlags, Stat};
 use crate::mem::{read_u8_slice_to_user_buffer, translated_byte_buffer, translated_refmut, translated_str, UserBuffer};
 use crate::process::{current_process, current_task, current_user_token};
 use alloc::sync::Arc;
@@ -268,20 +268,15 @@ pub fn sys_mkdirat(dirfd: usize, path: *const u8, _mode: u32) -> isize {
 
     let path = translated_str(token, path);
 
-    let original_dir_path = match current_process().inner_exclusive_access().fd_table[dirfd].as_ref() {
-        Some(inode) => match inode.path() {
+    let original_dir = match current_process().inner_exclusive_access().fd_table[dirfd].as_ref() {
+        Some(inode) => match inode.lookup(&path) {
             Some(path) => path,
             None => return -1,
         },
         None => return -1,
     };
 
-    let path = match absolute_path_2(original_dir_path.as_str(), path.as_str()) {
-        Ok(path) => path,
-        Err(_) => return -1,
-    };
-
-    match create_dir_by_str("/", &path) {
+    match create_dir(Some(&original_dir), &path) {
         Ok(_) => 0,
         Err(_) => -1,
     }

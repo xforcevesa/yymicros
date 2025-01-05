@@ -326,7 +326,7 @@ impl ProcessControlBlock {
         child
     }
     /// get pid
-    pub fn getpid(&self) -> usize {
+    pub const fn getpid(&self) -> usize {
         self.pid.0
     }
     /// change the location of the program break. return None if failed.
@@ -356,7 +356,10 @@ impl ProcessControlBlock {
     }
 
     pub fn get_parent_pid(&self) -> Option<usize> {
-        self.inner_exclusive_access().parent.as_ref().map(|p| p.upgrade().unwrap().getpid())
+        let inner = self.inner_exclusive_access();
+        let parent = inner.parent.as_ref().unwrap().upgrade().unwrap();
+        Some(parent.getpid())
+        
     }
 }
 
